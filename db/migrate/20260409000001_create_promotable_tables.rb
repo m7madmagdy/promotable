@@ -1,4 +1,4 @@
-class CreatePromotableTables < ActiveRecord::Migration[8.0]
+class CreatePromotableTables < ActiveRecord::Migration[8.1]
   def change
     create_table :promotable_promotions do |t|
       t.string   :name,           null: false

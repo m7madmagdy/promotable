@@ -1,0 +1,19 @@
+<% module_namespacing do -%>
+class <%= class_name %>Rule < Promotable::Rules::Base
+<% if parsed_preferences.any? -%>
+  store_accessor :preferences, <%= parsed_preferences.map { |p| ":#{p[:name]}" }.join(", ") %>
+
+<% end -%>
+  def self.preference_fields
+    [<%= parsed_preferences.map { |p| "{ name: :#{p[:name]}, type: :#{p[:type]} }" }.join(", ") %>]
+  end
+
+  private
+
+  def evaluate(promotable, context = {})
+    # TODO: implement eligibility logic
+    # Return true if the promotable meets this rule's criteria
+    raise NotImplementedError
+  end
+end
+<% end -%>

@@ -1,0 +1,5 @@
+{
+    "debug.javascript.defaultRuntimeExecutable": {
+        "pwa-node": "/home/mego/snap/code/240/.local/share/mise/shims/node"
+    }
+}

@@ -4,61 +4,31 @@ This document describes the internal architecture, design patterns, data model, 
 
 ## System Overview
 
-```mermaid
-graph TB
-  subgraph hostApp [Host Application]
-    Order["Order\n(acts_as_promotable)"]
-    User["User\n(acts_as_promoter)"]
-    Initializer["config/initializers/promotable.rb"]
-  end
-
-  subgraph gem [Promotable Engine]
-    subgraph domainModels [Domain Models]
-      Promotion["Promotion"]
-      Rule["Rules::Base\n(STI)"]
-      Action["Actions::Base\n(STI)"]
-      Adjustment["Adjustment\n(polymorphic)"]
-      Code["PromotionCode"]
-      Usage["CodeUsage"]
-    end
-
-    subgraph serviceObjects [Service Layer]
-      Evaluator["Evaluator"]
-      Applicator["Applicator"]
-      Redeemer["CodeRedeemer"]
-    end
-
-    subgraph infra [Infrastructure]
-      Registry["Registry"]
-      Config["Configuration"]
-      Engine["Engine / Railtie"]
-      Errors["Error hierarchy"]
-    end
-
-    subgraph concerns [Host Integration]
-      ActsPromotable["ActsAsPromotable"]
-      ActsPromoter["ActsAsPromoter"]
-    end
-  end
-
-  Order -->|includes| ActsPromotable
-  User -->|includes| ActsPromoter
-  Initializer -->|configures| Config
-
-  Redeemer -->|validates| Code
-  Redeemer -->|delegates to| Evaluator
-  Redeemer -->|delegates to| Applicator
-  Evaluator -->|checks| Rule
-  Applicator -->|executes| Action
-  Applicator -->|creates| Adjustment
-
-  Promotion -->|has_many| Rule
-  Promotion -->|has_many| Action
-  Promotion -->|has_many| Code
-  Code -->|has_many| Usage
-  Adjustment -->|"belongs_to (poly)"| Order
-  Registry -->|registers| Rule
-  Registry -->|registers| Action
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Host Application                                                        │
+│                                                                          │
+│   Order (acts_as_promotable)   User (acts_as_promoter)                  │
+│   config/initializers/promotable.rb                                      │
+└────────┬──────────────────────────┬───────────────────────┬─────────────┘
+         │ includes                 │ includes              │ configures
+         ▼                          ▼                       ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│  Promotable Engine                                                       │
+│                                                                          │
+│  ┌── Host Integration ──────┐   ┌── Infrastructure ───────────────────┐ │
+│  │  ActsAsPromotable        │   │  Registry      Configuration        │ │
+│  │  ActsAsPromoter          │   │  Engine        Error hierarchy      │ │
+│  └──────────────────────────┘   └─────────────────────────────────────┘ │
+│           │ delegates                    │ registers                     │
+│           ▼                              ▼                               │
+│  ┌── Service Layer ─────────┐   ┌── Domain Models ────────────────────┐ │
+│  │  Evaluator  ─────────────┼──▶│  Rules::Base (STI)                 │ │
+│  │  Applicator ─────────────┼──▶│  Actions::Base (STI)               │ │
+│  │  CodeRedeemer            │   │  Promotion    PromotionCode         │ │
+│  └──────────────────────────┘   │  Adjustment   CodeUsage            │ │
+│                                  └─────────────────────────────────────┘ │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Design Patterns
@@ -67,67 +37,29 @@ graph TB
 
 Rules and Actions each use STI with a shared `type` column. Every subclass implements a fixed contract, making them interchangeable at runtime without any conditional logic in the calling code.
 
-```mermaid
-classDiagram
-  class RulesBase {
-    +eligible?(promotable, context) bool
-    -pre_check(promotable, context) bool
-    -evaluate(promotable, context) bool
-  }
-
-  class MinimumAmountRule {
-    -evaluate(promotable, context) bool
-  }
-
-  class ItemQuantityRule {
-    -pre_check(promotable, context) bool
-    -evaluate(promotable, context) bool
-  }
-
-  class FirstPurchaseRule {
-    -pre_check(promotable, context) bool
-    -evaluate(promotable, context) bool
-  }
-
-  class UserEligibilityRule {
-    -pre_check(promotable, context) bool
-    -evaluate(promotable, context) bool
-  }
-
-  RulesBase <|-- MinimumAmountRule
-  RulesBase <|-- ItemQuantityRule
-  RulesBase <|-- FirstPurchaseRule
-  RulesBase <|-- UserEligibilityRule
+```
+Rules::Base
+  + eligible?(promotable, context) : bool      # public  – entry point
+  - pre_check(promotable, context) : bool      # private – fast-fail hook (default: true)
+  - evaluate(promotable, context)  : bool      # private – abstract, must override
+    │
+    ├── MinimumAmountRule      overrides: evaluate
+    ├── ItemQuantityRule       overrides: pre_check, evaluate
+    ├── FirstPurchaseRule      overrides: pre_check, evaluate
+    └── UserEligibilityRule    overrides: pre_check, evaluate
 ```
 
-```mermaid
-classDiagram
-  class ActionsBase {
-    +apply(promotable, context) Adjustment
-    +undo(promotable, context) void
-    +compute_amount(promotable, context) BigDecimal
-    -create_adjustment(promotable, amount, label)
-    -remove_adjustments(promotable)
-  }
-
-  class PercentageDiscount {
-    +compute_amount() BigDecimal
-    +apply() Adjustment
-  }
-
-  class FixedAmountDiscount {
-    +compute_amount() BigDecimal
-    +apply() Adjustment
-  }
-
-  class FreeShippingDiscount {
-    +compute_amount() BigDecimal
-    +apply() Adjustment
-  }
-
-  ActionsBase <|-- PercentageDiscount
-  ActionsBase <|-- FixedAmountDiscount
-  ActionsBase <|-- FreeShippingDiscount
+```
+Actions::Base
+  + apply(promotable, context)          : Adjustment   # public  – applies discount, returns Adjustment
+  + undo(promotable, context)                          # public  – removes adjustments
+  + compute_amount(promotable, context) : BigDecimal   # public  – abstract, must override
+  - create_adjustment(promotable, amount, label)       # private – persists Adjustment record
+  - remove_adjustments(promotable)                     # private – deletes existing adjustments
+    │
+    ├── PercentageDiscount      overrides: compute_amount, apply
+    ├── FixedAmountDiscount     overrides: compute_amount, apply
+    └── FreeShippingDiscount    overrides: compute_amount, apply
 ```
 
 **Why STI?** Each rule/action row lives in one table (`promotable_rules` or `promotable_actions`) with a `type` column that Rails resolves to the correct class. This means a `Promotion` can `has_many :rules` and iterate over them uniformly -- each one responds to `#eligible?` but with completely different logic inside.
@@ -175,85 +107,71 @@ registry.register(:bad, String)           # raises ArgumentError
 
 ### Entity-Relationship Diagram
 
-```mermaid
-erDiagram
-  promotable_promotions {
-    bigint id PK
-    string name
-    text description
-    string promotion_type
-    datetime starts_at
-    datetime expires_at
-    integer usage_limit
-    integer per_user_limit
-    integer usage_count
-    boolean active
-    integer priority
-    boolean stackable
-    json metadata
-  }
-
-  promotable_rules {
-    bigint id PK
-    bigint promotion_id FK
-    string type "STI discriminator"
-    json preferences
-  }
-
-  promotable_actions {
-    bigint id PK
-    bigint promotion_id FK
-    string type "STI discriminator"
-    json preferences
-  }
-
-  promotable_promotion_codes {
-    bigint id PK
-    bigint promotion_id FK
-    string code "unique"
-    integer usage_limit
-    integer usage_count
-  }
-
-  promotable_code_usages {
-    bigint id PK
-    bigint promotion_code_id FK
-    string user_type "polymorphic"
-    bigint user_id "polymorphic"
-    string promotable_type "polymorphic"
-    bigint promotable_id "polymorphic"
-  }
-
-  promotable_adjustments {
-    bigint id PK
-    bigint promotion_id FK
-    bigint promotion_action_id FK
-    string adjustable_type "polymorphic"
-    bigint adjustable_id "polymorphic"
-    decimal amount "precision 15 scale 4"
-    string label
-    boolean eligible
-    json metadata
-  }
-
-  promotable_promotions ||--o{ promotable_rules : "has_many"
-  promotable_promotions ||--o{ promotable_actions : "has_many"
-  promotable_promotions ||--o{ promotable_promotion_codes : "has_many"
-  promotable_promotions ||--o{ promotable_adjustments : "has_many"
-  promotable_promotion_codes ||--o{ promotable_code_usages : "has_many"
-  promotable_actions ||--o{ promotable_adjustments : "has_many"
+```
+promotable_promotions
+  id            bigint  PK
+  name          string
+  description   text
+  promotion_type string
+  starts_at     datetime
+  expires_at    datetime
+  usage_limit   integer
+  per_user_limit integer
+  usage_count   integer
+  active        boolean
+  priority      integer
+  stackable     boolean
+  metadata      json
+  │
+  ├──< promotable_rules
+  │      id            bigint  PK
+  │      promotion_id  bigint  FK → promotable_promotions
+  │      type          string  (STI discriminator)
+  │      preferences   json
+  │
+  ├──< promotable_actions
+  │      id            bigint  PK
+  │      promotion_id  bigint  FK → promotable_promotions
+  │      type          string  (STI discriminator)
+  │      preferences   json
+  │      │
+  │      └──< promotable_adjustments
+  │             id                  bigint   PK
+  │             promotion_id        bigint   FK → promotable_promotions
+  │             promotion_action_id bigint   FK → promotable_actions
+  │             adjustable_type     string   (polymorphic)
+  │             adjustable_id       bigint   (polymorphic)
+  │             amount              decimal  (precision 15, scale 4)
+  │             label               string
+  │             eligible            boolean
+  │             metadata            json
+  │
+  └──< promotable_promotion_codes
+         id            bigint  PK
+         promotion_id  bigint  FK → promotable_promotions
+         code          string  (unique)
+         usage_limit   integer
+         usage_count   integer
+         │
+         └──< promotable_code_usages
+                id               bigint  PK
+                promotion_code_id bigint FK → promotable_promotion_codes
+                user_type        string  (polymorphic)
+                user_id          bigint  (polymorphic)
+                promotable_type  string  (polymorphic)
+                promotable_id    bigint  (polymorphic)
 ```
 
 ### Key design decisions
 
-| Decision | Rationale |
-|---|---|
-| `json` columns for preferences/metadata | Portable across PostgreSQL, MySQL, and SQLite. Accessed via `store_accessor`. |
-| Polymorphic `adjustable` on adjustments | Any model can receive discounts -- orders, carts, subscriptions, etc. |
-| Polymorphic `user` on code_usages | Any authentication model works (User, Admin, Account). |
-| `type` column on rules and actions | STI discriminator -- Rails auto-resolves to the correct subclass. |
-| `stackable` + `priority` on promotions | Controls whether promotions combine and in what order they apply. |
-| Separate `PromotionCode` model | A single promotion can have many codes (batch-generated coupon campaigns). |
+| Decision                                | Rationale                                                                               |
+| --------------------------------------- | --------------------------------------------------------------------------------------- |
+| `json` columns for preferences/metadata | Portable across PostgreSQL, MySQL, and SQLite. Accessed via `store_accessor`.           |
+| Polymorphic `adjustable` on adjustments | Any model can receive discounts -- orders, carts, subscriptions, etc.                   |
+| Polymorphic `user` on code_usages       | Any authentication model works (User, Admin, Account).                                  |
+| `type` column on rules and actions      | STI discriminator -- Rails auto-resolves to the correct subclass.                       |
+| `stackable` + `priority` on promotions  | Controls whether promotions combine and in what order they apply.                       |
+| Separate `PromotionCode` model          | A single promotion can have many codes (batch-generated coupon campaigns).              |
 | `usage_count` as counter (not computed) | Avoids expensive COUNT queries on every eligibility check. Incremented transactionally. |
 
 ## Service Layer
@@ -262,84 +180,68 @@ Three service objects orchestrate the promotion lifecycle. They are stateless an
 
 ### Request Flow: Code Redemption
 
-```mermaid
-sequenceDiagram
-  participant Host as Host App
-  participant CR as CodeRedeemer
-  participant PC as PromotionCode
-  participant P as Promotion
-  participant E as Evaluator
-  participant A as Applicator
-  participant Act as Actions
-  participant Adj as Adjustment
-
-  Host->>CR: redeem("SAVE20", promotable, user)
-  CR->>PC: find_code!("SAVE20")
-  PC-->>CR: promotion_code
-  CR->>P: validate_promotion!(promotion)
-  CR->>PC: validate_code!(promotion_code)
-  CR->>P: within_per_user_limit?(user)
-
-  rect rgb(240, 248, 255)
-    Note over CR,Adj: Transaction
-    CR->>A: apply_single(promotion)
-    A->>P: eligible?(promotable, context)
-    P->>P: within_date_range? && within_usage_limit?
-    P->>P: rules.all? rule.eligible?(promotable)
-    P-->>A: true
-    A->>Act: apply(promotable, context)
-    Act->>Adj: create_adjustment(promotable, amount)
-    A->>P: increment_usage!
-    CR->>PC: increment_usage!
-    CR->>CR: record_usage(promotion_code)
-  end
-
-  CR-->>Host: promotion
+```
+Host App            CodeRedeemer        PromotionCode       Promotion           Applicator          Actions             Adjustment
+    │                    │                    │                   │                   │                   │                   │
+    │─ redeem("SAVE20") ▶│                    │                   │                   │                   │                   │
+    │                    │─ find_code!("SAVE20") ──────────────▶ │                   │                   │                   │
+    │                    │◀─ promotion_code ───────────────────── │                   │                   │                   │
+    │                    │─ validate_promotion!(promotion) ──────▶│                   │                   │                   │
+    │                    │─ validate_code!(promotion_code) ──▶   │                   │                   │                   │
+    │                    │─ within_per_user_limit?(user) ────────▶│                   │                   │                   │
+    │                    │                    │                   │                   │                   │                   │
+    │                    │   ╔══════════════════════ Transaction ═══════════════════════════════════════════════════════════╗  │
+    │                    │   ║                                    │                   │                   │                   ║  │
+    │                    │── ║─ apply_single(promotion) ──────────────────────────▶  │                   │                   ║  │
+    │                    │   ║                                    │◀─ eligible?(promotable, context) ─── │                   ║  │
+    │                    │   ║                                    │  within_date_range? + usage_limit?   │                   ║  │
+    │                    │   ║                                    │  rules.all?{ rule.eligible? }        │                   ║  │
+    │                    │   ║                                    │──────────────────▶│                   │                   ║  │
+    │                    │   ║                                    │                   │─ apply(promotable, context) ─────────║▶ │
+    │                    │   ║                                    │                   │                   │─ create_adjustment ║▶│
+    │                    │   ║                                    │◀─ increment_usage! ────────────────── │                   ║  │
+    │                    │◀──║── increment_usage!(code) ──────── │                   │                   │                   ║  │
+    │                    │── ║─ record_usage(promotion_code)      │                   │                   │                   ║  │
+    │                    │   ╚═══════════════════════════════════════════════════════════════════════════════════════════════╝  │
+    │◀─ promotion ────── │                    │                   │                   │                   │                   │
 ```
 
 ### Request Flow: Auto-Apply Best Promotions
 
-```mermaid
-sequenceDiagram
-  participant Host as Host App
-  participant E as Evaluator
-  participant P as Promotion
-  participant R as Rules
-  participant A as Applicator
-  participant Act as Actions
-
-  Host->>E: eligible_promotions
-  E->>P: Promotion.available
-  P-->>E: candidates
-
-  loop Each candidate
-    E->>P: eligible?(promotable, context)
-    P->>R: rule.eligible?(promotable) for each rule
-    R-->>P: true/false
-    P-->>E: eligible?
-  end
-
-  E-->>Host: eligible_promotions
-  Host->>A: apply(eligible_promotions)
-
-  loop Each promotion sorted by priority
-    A->>A: check max_promotions limit
-    A->>A: check stacking rules
-    rect rgb(240, 248, 255)
-      Note over A,Act: Transaction
-      A->>Act: action.apply(promotable) for each action
-      A->>P: increment_usage!
-    end
-  end
+```
+Host App        Evaluator       Promotion       Rules           Applicator      Actions
+    │               │               │               │               │               │
+    │─ eligible_promotions ────────▶│               │               │               │
+    │               │─ Promotion.available ────────▶│               │               │
+    │               │◀─ candidates ─────────────────│               │               │
+    │               │               │               │               │               │
+    │               │   ┌── for each candidate ───────────────────────────────────┐ │
+    │               │── │▶ eligible?(promotable, context) ───────────────────────▶│ │
+    │               │   │               │─ rule.eligible?() ──────────────────────┼▶│
+    │               │   │               │◀─ true / false ──────────────────────── │ │
+    │               │◀──│── true / false │               │               │         │ │
+    │               │   └────────────────────────────────────────────────────────┘ │
+    │◀─ eligible_promotions ──────── │               │               │               │
+    │                               │               │               │               │
+    │─ apply(eligible_promotions) ───────────────────────────────▶  │               │
+    │               │               │               │               │               │
+    │               │               │               │   ┌── for each promotion (sorted by priority) ──┐
+    │               │               │               │   │  check max_promotions limit                 │
+    │               │               │               │   │  check stacking rules                       │
+    │               │               │               │   │  ╔══ Transaction ════════════════════╗      │
+    │               │               │               │   │  ║ action.apply(promotable) ─────── ║ ───▶ │
+    │               │               │◀──────────────────│  ║ increment_usage!                 ║      │
+    │               │               │               │   │  ╚══════════════════════════════════╝      │
+    │               │               │               │   └─────────────────────────────────────────── ┘
 ```
 
 ### Service Responsibilities
 
-| Service | Role | Key methods |
-|---|---|---|
-| `Evaluator` | Determines which promotions are eligible for a given promotable. Resolves candidates either from all available promotions or from a specific code. | `eligible_promotions`, `best_promotion` |
-| `Applicator` | Applies or removes promotion actions. Enforces stacking rules and max-promotion limits. Wraps action execution in a transaction. | `apply`, `apply_single`, `remove`, `remove_all` |
-| `CodeRedeemer` | End-to-end coupon redemption. Validates the code, promotion status, usage limits, and per-user limits, then delegates to Applicator. | `redeem` |
+| Service        | Role                                                                                                                                               | Key methods                                     |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `Evaluator`    | Determines which promotions are eligible for a given promotable. Resolves candidates either from all available promotions or from a specific code. | `eligible_promotions`, `best_promotion`         |
+| `Applicator`   | Applies or removes promotion actions. Enforces stacking rules and max-promotion limits. Wraps action execution in a transaction.                   | `apply`, `apply_single`, `remove`, `remove_all` |
+| `CodeRedeemer` | End-to-end coupon redemption. Validates the code, promotion status, usage limits, and per-user limits, then delegates to Applicator.               | `redeem`                                        |
 
 ## Host App Integration
 
@@ -347,7 +249,7 @@ Two concerns are auto-included into `ActiveRecord::Base` via the engine's `Activ
 
 ### ActsAsPromotable
 
-Called on any model that can *receive* discounts:
+Called on any model that can _receive_ discounts:
 
 ```ruby
 class Order < ApplicationRecord
@@ -356,21 +258,22 @@ end
 ```
 
 This adds:
+
 - `has_many :promotable_adjustments` (polymorphic)
 - `has_many :promotable_code_usages` (polymorphic)
 - Instance methods: `apply_promotion_code`, `apply_best_promotions`, `remove_all_promotions`, `recalculate_promotions`, `promotion_total_discount`, `active_promotions`
 
 **Interface contract** -- the host model must implement:
 
-| Method | Returns | Used by |
-|---|---|---|
-| `#promotable_amount` | `BigDecimal` | All rules and actions |
-| `#promotable_items` | Array-like | `ItemQuantityRule` (optional) |
+| Method                      | Returns      | Used by                           |
+| --------------------------- | ------------ | --------------------------------- |
+| `#promotable_amount`        | `BigDecimal` | All rules and actions             |
+| `#promotable_items`         | Array-like   | `ItemQuantityRule` (optional)     |
 | `#promotable_shipping_cost` | `BigDecimal` | `FreeShippingDiscount` (optional) |
 
 ### ActsAsPromoter
 
-Called on any model that *uses* promotions:
+Called on any model that _uses_ promotions:
 
 ```ruby
 class User < ApplicationRecord
@@ -379,6 +282,7 @@ end
 ```
 
 This adds:
+
 - `has_many :promotion_code_usages` (polymorphic)
 - Instance methods: `promotion_usage_count`, `used_promotion?`, `available_promotions`
 
@@ -386,13 +290,13 @@ This adds:
 
 The system is designed around the Open/Closed Principle -- new behavior is added by creating new classes, never by modifying existing ones.
 
-| Extension point | How to extend | Registration |
-|---|---|---|
-| New eligibility rule | Subclass `Promotable::Rules::Base`, implement `#evaluate` | `config.rule_registry.register(:key, MyRule)` |
-| New discount action | Subclass `Promotable::Actions::Base`, implement `#compute_amount` and `#apply` | `config.action_registry.register(:key, MyAction)` |
-| New promotable model | Call `acts_as_promotable`, implement `#promotable_amount` | None needed |
-| New promoter model | Call `acts_as_promoter` | None needed |
-| Configuration | `Promotable.configure { \|c\| ... }` | N/A |
+| Extension point      | How to extend                                                                  | Registration                                      |
+| -------------------- | ------------------------------------------------------------------------------ | ------------------------------------------------- |
+| New eligibility rule | Subclass `Promotable::Rules::Base`, implement `#evaluate`                      | `config.rule_registry.register(:key, MyRule)`     |
+| New discount action  | Subclass `Promotable::Actions::Base`, implement `#compute_amount` and `#apply` | `config.action_registry.register(:key, MyAction)` |
+| New promotable model | Call `acts_as_promotable`, implement `#promotable_amount`                      | None needed                                       |
+| New promoter model   | Call `acts_as_promoter`                                                        | None needed                                       |
+| Configuration        | `Promotable.configure { \|c\| ... }`                                           | N/A                                               |
 
 ### Extension example: custom rule
 

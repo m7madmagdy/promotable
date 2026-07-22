@@ -5,7 +5,7 @@ Gem::Specification.new do |spec|
   spec.version     = Promotable::VERSION
   spec.authors     = [ "Mohamed Magdy" ]
   spec.email       = [ "mohamedmagdysaber@gmail.com" ]
-  spec.homepage    = "https://github.com/mohamedmagdy/promotable"
+  spec.homepage    = "https://github.com/m7madmagdy/promotable"
   spec.summary     = "Extensible promotion and coupon engine for Rails"
   spec.description = "A Rails engine providing a type-agnostic, extensible promotion system with STI-based rules and actions, a registry for custom types, and concerns for seamless host-app integration."
   spec.license     = "MIT"

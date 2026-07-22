@@ -1,0 +1,18 @@
+require "rails_helper"
+
+<% module_namespacing do -%>
+RSpec.describe <%= class_name %>Action do
+  before do
+    @promotion = Promotable::Promotion.create!(name: "Test", active: true)
+    @action = described_class.create!(promotion: @promotion, preferences: {<%= parsed_preferences.map { |p| "#{p[:name]}: nil" }.join(", ") %>})
+  end
+
+  it "compute_amount returns the correct discount" do
+    skip "implement test"
+  end
+
+  it "apply creates an adjustment" do
+    skip "implement test"
+  end
+end
+<% end -%>

@@ -1,0 +1,18 @@
+require "rails_helper"
+
+<% module_namespacing do -%>
+RSpec.describe <%= class_name %>Rule do
+  before do
+    @promotion = Promotable::Promotion.create!(name: "Test", active: true)
+    @rule = described_class.create!(promotion: @promotion, preferences: {<%= parsed_preferences.map { |p| "#{p[:name]}: nil" }.join(", ") %>})
+  end
+
+  it "eligible? returns true when criteria is met" do
+    skip "implement test"
+  end
+
+  it "eligible? returns false when criteria is not met" do
+    skip "implement test"
+  end
+end
+<% end -%>

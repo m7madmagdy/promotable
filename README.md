@@ -83,7 +83,7 @@ The install generator does two things:
 
 ### 1. Mark your promotable model
 
-Any model that can *receive* promotions (e.g. Order, Cart, Subscription) calls `acts_as_promotable` and implements the `#promotable_amount` method:
+Any model that can _receive_ promotions (e.g. Order, Cart, Subscription) calls `acts_as_promotable` and implements the `#promotable_amount` method:
 
 ```ruby
 class Order < ApplicationRecord
@@ -110,20 +110,20 @@ end
 
 This gives your model:
 
-| Method | Description |
-|---|---|
-| `apply_promotion_code(code, user:)` | Redeem a coupon code on this record. |
-| `apply_best_promotions(user:)` | Auto-apply all eligible promotions. |
-| `remove_all_promotions` | Remove every adjustment from this record. |
-| `recalculate_promotions(user:)` | Remove then re-apply eligible promotions. |
-| `promotion_total_discount` | Sum of all eligible adjustment amounts (negative = discount). |
-| `active_promotions` | Array of distinct `Promotable::Promotion` records currently applied. |
-| `promotable_adjustments` | ActiveRecord association of `Promotable::Adjustment` records. |
-| `promotable_code_usages` | ActiveRecord association of `Promotable::CodeUsage` records. |
+| Method                              | Description                                                          |
+| ----------------------------------- | -------------------------------------------------------------------- |
+| `apply_promotion_code(code, user:)` | Redeem a coupon code on this record.                                 |
+| `apply_best_promotions(user:)`      | Auto-apply all eligible promotions.                                  |
+| `remove_all_promotions`             | Remove every adjustment from this record.                            |
+| `recalculate_promotions(user:)`     | Remove then re-apply eligible promotions.                            |
+| `promotion_total_discount`          | Sum of all eligible adjustment amounts (negative = discount).        |
+| `active_promotions`                 | Array of distinct `Promotable::Promotion` records currently applied. |
+| `promotable_adjustments`            | ActiveRecord association of `Promotable::Adjustment` records.        |
+| `promotable_code_usages`            | ActiveRecord association of `Promotable::CodeUsage` records.         |
 
 ### 2. Mark your user model
 
-Any model that *redeems* promotions calls `acts_as_promoter`:
+Any model that _redeems_ promotions calls `acts_as_promoter`:
 
 ```ruby
 class User < ApplicationRecord
@@ -138,12 +138,12 @@ end
 
 This gives your model:
 
-| Method | Description |
-|---|---|
-| `promotion_usage_count(promotion)` | How many times this user has used a given promotion. |
-| `used_promotion?(promotion)` | Whether this user has used the promotion at all. |
-| `available_promotions` | All active promotions this user is still eligible for. |
-| `promotion_code_usages` | ActiveRecord association of `Promotable::CodeUsage` records. |
+| Method                             | Description                                                  |
+| ---------------------------------- | ------------------------------------------------------------ |
+| `promotion_usage_count(promotion)` | How many times this user has used a given promotion.         |
+| `used_promotion?(promotion)`       | Whether this user has used the promotion at all.             |
+| `available_promotions`             | All active promotions this user is still eligible for.       |
+| `promotion_code_usages`            | ActiveRecord association of `Promotable::CodeUsage` records. |
 
 ### 3. Configure (optional)
 
@@ -151,14 +151,14 @@ Edit `config/initializers/promotable.rb` to customize behavior and register cust
 
 ## Core Concepts
 
-| Concept | Model | Description |
-|---|---|---|
-| **Promotion** | `Promotable::Promotion` | The central entity: a named promotion with date range, usage limits, priority, and stacking rules. |
-| **Rule** | `Promotable::Rules::Base` | An eligibility condition (STI). All rules on a promotion must pass for it to apply. |
-| **Action** | `Promotable::Actions::Base` | A discount behavior (STI). Each action creates an `Adjustment` when applied. |
-| **PromotionCode** | `Promotable::PromotionCode` | A redeemable coupon code string linked to a promotion, with its own usage limit. |
-| **Adjustment** | `Promotable::Adjustment` | A polymorphic record tracking an applied discount on any promotable. |
-| **CodeUsage** | `Promotable::CodeUsage` | Tracks who used which code on which promotable, enabling per-user limits. |
+| Concept           | Model                       | Description                                                                                        |
+| ----------------- | --------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Promotion**     | `Promotable::Promotion`     | The central entity: a named promotion with date range, usage limits, priority, and stacking rules. |
+| **Rule**          | `Promotable::Rules::Base`   | An eligibility condition (STI). All rules on a promotion must pass for it to apply.                |
+| **Action**        | `Promotable::Actions::Base` | A discount behavior (STI). Each action creates an `Adjustment` when applied.                       |
+| **PromotionCode** | `Promotable::PromotionCode` | A redeemable coupon code string linked to a promotion, with its own usage limit.                   |
+| **Adjustment**    | `Promotable::Adjustment`    | A polymorphic record tracking an applied discount on any promotable.                               |
+| **CodeUsage**     | `Promotable::CodeUsage`     | Tracks who used which code on which promotable, enabling per-user limits.                          |
 
 ### How it works
 
@@ -259,20 +259,20 @@ promo.codes.create!(code: "SUMMER20", usage_limit: 500)
 
 #### Promotion fields reference
 
-| Field | Type | Default | Description |
-|---|---|---|---|
-| `name` | `string` | *required* | Display name of the promotion. |
-| `description` | `text` | `nil` | Human-readable description. |
-| `promotion_type` | `string` | `nil` | Free-form label for categorization. |
-| `starts_at` | `datetime` | `nil` | When the promotion becomes valid. `nil` = immediately. |
-| `expires_at` | `datetime` | `nil` | When the promotion expires. `nil` = never. |
-| `usage_limit` | `integer` | `nil` | Max total redemptions. `nil` = unlimited. |
-| `per_user_limit` | `integer` | `nil` | Max redemptions per user. `nil` = unlimited. |
-| `usage_count` | `integer` | `0` | Current total redemptions (auto-incremented). |
-| `active` | `boolean` | `false` | Master on/off switch. |
-| `priority` | `integer` | `0` | Lower = applied first. |
-| `stackable` | `boolean` | `true` | Whether this can combine with other promotions. |
-| `metadata` | `json` | `{}` | Arbitrary key-value data for your application. |
+| Field            | Type       | Default    | Description                                            |
+| ---------------- | ---------- | ---------- | ------------------------------------------------------ |
+| `name`           | `string`   | _required_ | Display name of the promotion.                         |
+| `description`    | `text`     | `nil`      | Human-readable description.                            |
+| `promotion_type` | `string`   | `nil`      | Free-form label for categorization.                    |
+| `starts_at`      | `datetime` | `nil`      | When the promotion becomes valid. `nil` = immediately. |
+| `expires_at`     | `datetime` | `nil`      | When the promotion expires. `nil` = never.             |
+| `usage_limit`    | `integer`  | `nil`      | Max total redemptions. `nil` = unlimited.              |
+| `per_user_limit` | `integer`  | `nil`      | Max redemptions per user. `nil` = unlimited.           |
+| `usage_count`    | `integer`  | `0`        | Current total redemptions (auto-incremented).          |
+| `active`         | `boolean`  | `false`    | Master on/off switch.                                  |
+| `priority`       | `integer`  | `0`        | Lower = applied first.                                 |
+| `stackable`      | `boolean`  | `true`     | Whether this can combine with other promotions.        |
+| `metadata`       | `json`     | `{}`       | Arbitrary key-value data for your application.         |
 
 ### Batch code generation
 
@@ -448,7 +448,7 @@ promo.actions.create!(type: "Promotable::Actions::FreeShippingDiscount")
 rails generate promotable:rule LoyaltyTier required_tier:integer
 ```
 
-This creates `app/models/loyalty_tier_rule.rb` and `test/models/loyalty_tier_rule_test.rb`.
+This creates `app/models/loyalty_tier_rule.rb` and `spec/models/loyalty_tier_rule_spec.rb`.
 
 ### Manual creation
 
@@ -494,12 +494,12 @@ promo.rules.create!(
 
 ### Rule API contract
 
-| Method | Visibility | Must implement? | Description |
-|---|---|---|---|
-| `#eligible?(promotable, context)` | public | No (inherited) | Entry point. Calls `pre_check` then `evaluate`. |
-| `#pre_check(promotable, context)` | private | Optional | Fast-fail guard. Return `false` to skip `evaluate`. Defaults to `true`. |
-| `#evaluate(promotable, context)` | private | **Yes** | Return `true` if the promotable meets this rule's criteria. |
-| `.preference_fields` | public (class) | Optional | Returns an array of hashes describing configurable preferences. |
+| Method                            | Visibility     | Must implement? | Description                                                             |
+| --------------------------------- | -------------- | --------------- | ----------------------------------------------------------------------- |
+| `#eligible?(promotable, context)` | public         | No (inherited)  | Entry point. Calls `pre_check` then `evaluate`.                         |
+| `#pre_check(promotable, context)` | private        | Optional        | Fast-fail guard. Return `false` to skip `evaluate`. Defaults to `true`. |
+| `#evaluate(promotable, context)`  | private        | **Yes**         | Return `true` if the promotable meets this rule's criteria.             |
+| `.preference_fields`              | public (class) | Optional        | Returns an array of hashes describing configurable preferences.         |
 
 ## Creating Custom Actions
 
@@ -546,14 +546,14 @@ end
 
 ### Action API contract
 
-| Method | Visibility | Must implement? | Description |
-|---|---|---|---|
-| `#apply(promotable, context)` | public | **Yes** | Execute the discount. Call `create_adjustment` to persist. |
-| `#compute_amount(promotable, context)` | public | **Yes** | Return the discount as a negative `BigDecimal`. |
-| `#undo(promotable, context)` | public | No (inherited) | Removes adjustments for the promotable. Override for custom cleanup. |
-| `.preference_fields` | public (class) | Optional | Array of hashes describing configurable preferences. |
-| `#create_adjustment(promotable, amount, label:)` | private (inherited) | N/A | Helper to create an `Adjustment` record. |
-| `#remove_adjustments(promotable)` | private (inherited) | N/A | Helper to destroy this action's adjustments for a promotable. |
+| Method                                           | Visibility          | Must implement? | Description                                                          |
+| ------------------------------------------------ | ------------------- | --------------- | -------------------------------------------------------------------- |
+| `#apply(promotable, context)`                    | public              | **Yes**         | Execute the discount. Call `create_adjustment` to persist.           |
+| `#compute_amount(promotable, context)`           | public              | **Yes**         | Return the discount as a negative `BigDecimal`.                      |
+| `#undo(promotable, context)`                     | public              | No (inherited)  | Removes adjustments for the promotable. Override for custom cleanup. |
+| `.preference_fields`                             | public (class)      | Optional        | Array of hashes describing configurable preferences.                 |
+| `#create_adjustment(promotable, amount, label:)` | private (inherited) | N/A             | Helper to create an `Adjustment` record.                             |
+| `#remove_adjustments(promotable)`                | private (inherited) | N/A             | Helper to destroy this action's adjustments for a promotable.        |
 
 ## Configuration
 
@@ -595,37 +595,37 @@ Promotable.reset_configuration!
 
 Models using `acts_as_promotable` **must** implement:
 
-| Method | Return type | Required by |
-|---|---|---|
+| Method               | Return type  | Required by                                                          |
+| -------------------- | ------------ | -------------------------------------------------------------------- |
 | `#promotable_amount` | `BigDecimal` | All rules and actions. Raises `PromotableInterfaceError` if missing. |
 
 Models using `acts_as_promotable` **may** implement:
 
-| Method | Return type | Required by |
-|---|---|---|
-| `#promotable_items` | Array-like | `ItemQuantityRule` |
+| Method                      | Return type  | Required by            |
+| --------------------------- | ------------ | ---------------------- |
+| `#promotable_items`         | Array-like   | `ItemQuantityRule`     |
 | `#promotable_shipping_cost` | `BigDecimal` | `FreeShippingDiscount` |
 
 Models using `acts_as_promoter` **may** implement:
 
-| Method | Return type | Required by |
-|---|---|---|
-| `#promotion_group` | `String` | `UserEligibilityRule` |
+| Method             | Return type | Required by           |
+| ------------------ | ----------- | --------------------- |
+| `#promotion_group` | `String`    | `UserEligibilityRule` |
 
 ## Error Handling
 
 All errors inherit from `Promotable::Error`, so you can rescue broadly or specifically:
 
-| Error | Raised when |
-|---|---|
-| `Promotable::InvalidCodeError` | Promotion code string not found in the database. |
-| `Promotable::IneligibleError` | Promotion exists but fails eligibility checks. |
-| `Promotable::PromotionInactiveError` | Promotion's `active` flag is `false`. |
-| `Promotable::PromotionExpiredError` | Promotion is outside its `starts_at..expires_at` range. |
-| `Promotable::UsageLimitExceededError` | Code, promotion, or per-user usage limit reached. |
-| `Promotable::StackingNotAllowedError` | Stacking is disabled and a promotion is already applied. |
-| `Promotable::MaxPromotionsExceededError` | `max_promotions_per_promotable` limit reached. |
-| `Promotable::PromotableInterfaceError` | Model does not implement a required interface method (e.g. `#promotable_amount`). |
+| Error                                    | Raised when                                                                       |
+| ---------------------------------------- | --------------------------------------------------------------------------------- |
+| `Promotable::InvalidCodeError`           | Promotion code string not found in the database.                                  |
+| `Promotable::IneligibleError`            | Promotion exists but fails eligibility checks.                                    |
+| `Promotable::PromotionInactiveError`     | Promotion's `active` flag is `false`.                                             |
+| `Promotable::PromotionExpiredError`      | Promotion is outside its `starts_at..expires_at` range.                           |
+| `Promotable::UsageLimitExceededError`    | Code, promotion, or per-user usage limit reached.                                 |
+| `Promotable::StackingNotAllowedError`    | Stacking is disabled and a promotion is already applied.                          |
+| `Promotable::MaxPromotionsExceededError` | `max_promotions_per_promotable` limit reached.                                    |
+| `Promotable::PromotableInterfaceError`   | Model does not implement a required interface method (e.g. `#promotable_amount`). |
 
 ### Usage in controllers
 
@@ -663,14 +663,14 @@ end
 
 Promotable creates six tables, all prefixed with `promotable_`:
 
-| Table | Purpose |
-|---|---|
-| `promotable_promotions` | Core promotion records with dates, limits, priority, stacking. |
-| `promotable_rules` | STI-based eligibility rules. `type` column resolves the subclass. |
-| `promotable_actions` | STI-based discount actions. `type` column resolves the subclass. |
-| `promotable_promotion_codes` | Redeemable coupon code strings with per-code usage limits. |
-| `promotable_code_usages` | Polymorphic join tracking which user used which code on which promotable. |
-| `promotable_adjustments` | Polymorphic discount records attached to any promotable model. |
+| Table                        | Purpose                                                                   |
+| ---------------------------- | ------------------------------------------------------------------------- |
+| `promotable_promotions`      | Core promotion records with dates, limits, priority, stacking.            |
+| `promotable_rules`           | STI-based eligibility rules. `type` column resolves the subclass.         |
+| `promotable_actions`         | STI-based discount actions. `type` column resolves the subclass.          |
+| `promotable_promotion_codes` | Redeemable coupon code strings with per-code usage limits.                |
+| `promotable_code_usages`     | Polymorphic join tracking which user used which code on which promotable. |
+| `promotable_adjustments`     | Polymorphic discount records attached to any promotable model.            |
 
 All `preferences` and `metadata` columns use the `json` type for cross-database compatibility (PostgreSQL, MySQL, SQLite).
 
@@ -709,7 +709,7 @@ Creates an action subclass with `store_accessor` for each field and a matching t
 ```bash
 cd promotable
 bundle install
-bundle exec rake test
+bundle exec rspec
 ```
 
 The gem ships with 90 tests covering:
@@ -725,38 +725,40 @@ The gem ships with 90 tests covering:
 When writing tests that involve promotions in your application:
 
 ```ruby
-class OrderPromotionTest < ActiveSupport::TestCase
-  setup do
-    @promo = Promotable::Promotion.create!(
+RSpec.describe "Order promotions" do
+  it "applies coupon codes and creates adjustments" do
+    promo = Promotable::Promotion.create!(
       name: "Test Promo",
       active: true,
       starts_at: 1.day.ago,
       expires_at: 1.day.from_now
     )
-    @promo.actions.create!(
+    promo.actions.create!(
       type: "Promotable::Actions::FixedAmountDiscount",
       preferences: { amount: 10 }
     )
-    @promo.codes.create!(code: "TEST10")
+    promo.codes.create!(code: "TEST10")
 
-    @order = Order.create!(total_price: 100)
-    @user  = User.create!(name: "Tester")
+    order = Order.create!(total_price: 100)
+    user = User.create!(name: "Tester")
+
+    order.apply_promotion_code("TEST10", user: user)
+
+    expect(order.promotion_total_discount).to eq(BigDecimal("-10"))
+    expect(order.promotable_adjustments.count).to eq(1)
   end
 
-  test "applying a coupon code creates an adjustment" do
-    @order.apply_promotion_code("TEST10", user: @user)
+  it "raises InvalidCodeError for unknown codes" do
+    order = Order.create!(total_price: 100)
+    user = User.create!(name: "Tester")
 
-    assert_equal BigDecimal("-10"), @order.promotion_total_discount
-    assert_equal 1, @order.promotable_adjustments.count
-  end
-
-  test "invalid code raises InvalidCodeError" do
-    assert_raises Promotable::InvalidCodeError do
-      @order.apply_promotion_code("NOPE", user: @user)
-    end
+    expect { order.apply_promotion_code("NOPE", user: user) }
+      .to raise_error(Promotable::InvalidCodeError)
   end
 end
 ```
+
+Promotable's own test suite uses RSpec.
 
 ## Architecture
 
@@ -777,7 +779,7 @@ bundle install
 3. Set up the test database:
 
 ```bash
-cd test/dummy
+cd spec/dummy
 RAILS_ENV=test bin/rails db:create db:migrate
 cd ../..
 ```
@@ -785,14 +787,14 @@ cd ../..
 4. Run the test suite to confirm everything passes:
 
 ```bash
-bundle exec rake test
+bundle exec rspec
 ```
 
 ### Development workflow
 
-- The gem uses a **dummy Rails app** at `test/dummy/` for integration testing. It contains `Order` and `User` models that use `acts_as_promotable` and `acts_as_promoter`.
+- The gem uses a **dummy Rails app** at `spec/dummy/` for integration testing. It contains `Order` and `User` models that use `acts_as_promotable` and `acts_as_promoter`.
 - Source code lives in `app/models/promotable/` (models) and `lib/promotable/` (services, concerns, infrastructure).
-- Tests mirror the source structure under `test/`.
+- Specs mirror the source structure under `spec/`.
 
 ### Making changes
 
@@ -811,7 +813,7 @@ git checkout -b feature/my-improvement
 3. Add tests for every new feature or bug fix. The test suite must pass:
 
 ```bash
-bundle exec rake test
+bundle exec rspec
 ```
 
 4. Make sure there are no Ruby warnings in the test output.
@@ -834,7 +836,7 @@ bundle exec rake test
 2. Implement `#evaluate` (required) and optionally `#pre_check`.
 3. Add `self.preference_fields` if the rule has configuration.
 4. Register it in `Configuration#register_defaults!`.
-5. Add tests in `test/models/promotable/rules/my_rule_test.rb`.
+5. Add specs in `spec/models/promotable/rules/my_rule_spec.rb`.
 
 ### Adding a new built-in action
 
@@ -842,7 +844,7 @@ bundle exec rake test
 2. Implement `#compute_amount` and `#apply`.
 3. Add `self.preference_fields` if the action has configuration.
 4. Register it in `Configuration#register_defaults!`.
-5. Add tests in `test/models/promotable/actions/my_action_test.rb`.
+5. Add specs in `spec/models/promotable/actions/my_action_spec.rb`.
 
 ### Reporting issues
 

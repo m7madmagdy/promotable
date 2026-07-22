@@ -13,7 +13,7 @@ module Promotable
       end
 
       def create_test_file
-        template "rule_test.rb.tt", File.join("test/models", class_path.join("/"), "#{file_name}_rule_test.rb")
+        template "rule_spec.rb.tt", File.join("spec/models", class_path.join("/"), "#{file_name}_rule_spec.rb")
       end
 
       def display_registration_instructions

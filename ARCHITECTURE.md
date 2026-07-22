@@ -234,7 +234,7 @@ Host App        Evaluator       Promotion       Rules           Applicator      
 | Service        | Role                                                                                                                                               | Key methods                                     |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `Evaluator`    | Determines which promotions are eligible for a given promotable. Resolves candidates either from all available promotions or from a specific code. | `eligible_promotions`, `best_promotion`         |
-| `Applicator`   | Applies or removes promotion actions. Enforces stacking rules and wraps action execution in a transaction.                                          | `apply`, `apply_single`, `remove`, `remove_all` |
+| `Applicator`   | Applies or removes promotion actions. Enforces stacking rules and wraps action execution in a transaction.                                         | `apply`, `apply_single`, `remove`, `remove_all` |
 | `CodeRedeemer` | End-to-end coupon redemption. Validates the code, promotion status, usage limits, and per-user limits, then delegates to Applicator.               | `redeem`                                        |
 
 ## Host App Integration
@@ -259,11 +259,11 @@ This adds:
 
 **Interface contract** -- the host model must implement:
 
-| Method                      | Returns      | Used by                           |
-| --------------------------- | ------------ | --------------------------------- |
-| `#promotable_amount`        | `BigDecimal` | All rules and actions             |
-| `#promotable_items`         | Array-like   | Custom rules/actions (optional)   |
-| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions (optional)   |
+| Method                      | Returns      | Used by                         |
+| --------------------------- | ------------ | ------------------------------- |
+| `#promotable_amount`        | `BigDecimal` | All rules and actions           |
+| `#promotable_items`         | Array-like   | Custom rules/actions (optional) |
+| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions (optional) |
 
 ### ActsAsPromoter
 

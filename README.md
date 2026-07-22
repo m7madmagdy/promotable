@@ -543,16 +543,16 @@ Models using `acts_as_promotable` **must** implement:
 
 Models using `acts_as_promotable` **may** implement:
 
-| Method                      | Return type  | Required by            |
-| --------------------------- | ------------ | ---------------------- |
-| `#promotable_items`         | Array-like   | Custom rules/actions   |
-| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions   |
+| Method                      | Return type  | Required by          |
+| --------------------------- | ------------ | -------------------- |
+| `#promotable_items`         | Array-like   | Custom rules/actions |
+| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions |
 
 Models using `acts_as_promoter` **may** implement:
 
-| Method             | Return type | Required by           |
-| ------------------ | ----------- | --------------------- |
-| `#promotion_group` | `String`    | Custom rules          |
+| Method             | Return type | Required by  |
+| ------------------ | ----------- | ------------ |
+| `#promotion_group` | `String`    | Custom rules |
 
 ## Error Handling
 

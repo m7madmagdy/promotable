@@ -28,7 +28,18 @@ RSpec.describe Promotable::CodeRedeemer do
     expect(@code.reload.usage_count).to eq(1)
   end
 
-  it "redeem normalizes code to uppercase" do
+  it "redeem updates order total_after_discounts with promotion discount" do
+    redeemer = described_class.new("SAVE10", promotable: @order, user: @user)
+
+    redeemer.redeem
+
+    reloaded = @order.reload
+    expect(reloaded.total_amount.to_d).to eq(BigDecimal("100.0"))
+    expect(reloaded.total_after_discounts.to_d).to eq(BigDecimal("90.0"))
+  end
+
+  it "redeem normalizes code to uppercase when code_case_sensitive is false" do
+    Promotable.configuration.code_case_sensitive = false
     redeemer = described_class.new("save10", promotable: @order, user: @user)
 
     expect { redeemer.redeem }.to change(Promotable::Adjustment, :count).by(1)
@@ -80,5 +91,19 @@ RSpec.describe Promotable::CodeRedeemer do
     expect { redeemer.redeem }
       .to change(Promotable::Adjustment, :count).by(1)
       .and change(Promotable::CodeUsage, :count).by(0)
+  end
+
+  it "redeem raises InvalidCodeError when code belongs to another client promotion" do
+    acme = create_client(name: "Acme")
+    globex = create_client(name: "Globex")
+    Promotable.configuration.current_tenant_resolver = -> { acme }
+
+    @promo.update!(client: globex)
+    @order.update!(client: acme)
+    @user.update!(client: acme)
+
+    redeemer = described_class.new("SAVE10", promotable: @order, user: @user)
+
+    expect { redeemer.redeem }.to raise_error(Promotable::InvalidCodeError)
   end
 end

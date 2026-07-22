@@ -93,18 +93,6 @@ class Order < ApplicationRecord
   def promotable_amount
     BigDecimal(total_price.to_s)
   end
-
-  # OPTIONAL -- return an array-like collection of line items.
-  # Only needed if you use ItemQuantityRule.
-  def promotable_items
-    line_items
-  end
-
-  # OPTIONAL -- return the shipping cost as a BigDecimal.
-  # Only needed if you use FreeShippingDiscount.
-  def promotable_shipping_cost
-    BigDecimal(shipping_total.to_s)
-  end
 end
 ```
 
@@ -128,11 +116,6 @@ Any model that _redeems_ promotions calls `acts_as_promoter`:
 ```ruby
 class User < ApplicationRecord
   acts_as_promoter
-
-  # OPTIONAL -- return a group string for UserEligibilityRule.
-  def promotion_group
-    vip? ? "vip" : "regular"
-  end
 end
 ```
 
@@ -206,7 +189,7 @@ end
 order.apply_best_promotions(user: current_user)
 ```
 
-This finds all eligible promotions, sorts them by priority, respects stacking rules, and applies them within the configured `max_promotions_per_promotable` limit.
+This finds all eligible promotions, sorts them by priority, and applies them while respecting stacking rules.
 
 ### Checking the discount total
 
@@ -365,6 +348,8 @@ rails promotable:stats
 
 Rules are eligibility conditions. **All** rules on a promotion must pass for it to apply.
 
+Starter baseline includes one built-in rule:
+
 ### MinimumAmountRule
 
 Requires the promotable's `#promotable_amount` to meet a threshold.
@@ -376,39 +361,11 @@ promo.rules.create!(
 )
 ```
 
-### ItemQuantityRule
-
-Requires the promotable's `#promotable_items` count to meet a threshold.
-
-```ruby
-promo.rules.create!(
-  type: "Promotable::Rules::ItemQuantityRule",
-  preferences: { minimum_quantity: 3 }
-)
-```
-
-### FirstPurchaseRule
-
-Eligible only if the user has zero prior code usages. Requires `user` in context.
-
-```ruby
-promo.rules.create!(type: "Promotable::Rules::FirstPurchaseRule")
-```
-
-### UserEligibilityRule
-
-Eligible only if the user's `#promotion_group` matches. Requires `user` in context.
-
-```ruby
-promo.rules.create!(
-  type: "Promotable::Rules::UserEligibilityRule",
-  preferences: { eligible_group: "vip" }
-)
-```
-
 ## Built-in Actions
 
 Actions define the discount to apply when a promotion is eligible.
+
+Starter baseline includes one built-in action:
 
 ### PercentageDiscount
 
@@ -419,25 +376,6 @@ promo.actions.create!(
   type: "Promotable::Actions::PercentageDiscount",
   preferences: { percentage: 15 }
 )
-```
-
-### FixedAmountDiscount
-
-Applies a flat discount. Automatically capped so the discount never exceeds the promotable amount.
-
-```ruby
-promo.actions.create!(
-  type: "Promotable::Actions::FixedAmountDiscount",
-  preferences: { amount: 10.0 }
-)
-```
-
-### FreeShippingDiscount
-
-Negates the `#promotable_shipping_cost`. No preferences needed.
-
-```ruby
-promo.actions.create!(type: "Promotable::Actions::FreeShippingDiscount")
 ```
 
 ## Creating Custom Rules
@@ -561,19 +499,23 @@ The initializer at `config/initializers/promotable.rb` supports these options:
 
 ```ruby
 Promotable.configure do |config|
-  # Maximum promotions that can be applied to a single promotable.
-  # Default: 5
-  config.max_promotions_per_promotable = 5
-
   # Whether multiple promotions can stack on the same promotable.
   # When false, only the highest-priority promotion is applied.
-  # Default: true
-  config.allow_stacking = true
+  # Default: false
+  config.allow_stacking = false
 
   # Whether promotion codes are case-sensitive.
-  # When false, "save20" and "SAVE20" are treated as the same code.
-  # Default: false
-  config.code_case_sensitive = false
+  # When true, "save20" and "SAVE20" are treated as different codes.
+  # Default: true
+  config.code_case_sensitive = true
+
+  # Resolve the current tenant globally (Client in most apps).
+  # Default: nil (no tenant; only global promotions are considered)
+  config.current_tenant_resolver = -> { Current.client }
+
+  # Optional tenant model name.
+  # Default: "Client"
+  config.tenant_model_name = "Client"
 
   # Register custom rules
   config.rule_registry.register(:loyalty_tier, LoyaltyTierRule)
@@ -603,29 +545,28 @@ Models using `acts_as_promotable` **may** implement:
 
 | Method                      | Return type  | Required by            |
 | --------------------------- | ------------ | ---------------------- |
-| `#promotable_items`         | Array-like   | `ItemQuantityRule`     |
-| `#promotable_shipping_cost` | `BigDecimal` | `FreeShippingDiscount` |
+| `#promotable_items`         | Array-like   | Custom rules/actions   |
+| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions   |
 
 Models using `acts_as_promoter` **may** implement:
 
 | Method             | Return type | Required by           |
 | ------------------ | ----------- | --------------------- |
-| `#promotion_group` | `String`    | `UserEligibilityRule` |
+| `#promotion_group` | `String`    | Custom rules          |
 
 ## Error Handling
 
 All errors inherit from `Promotable::Error`, so you can rescue broadly or specifically:
 
-| Error                                    | Raised when                                                                       |
-| ---------------------------------------- | --------------------------------------------------------------------------------- |
-| `Promotable::InvalidCodeError`           | Promotion code string not found in the database.                                  |
-| `Promotable::IneligibleError`            | Promotion exists but fails eligibility checks.                                    |
-| `Promotable::PromotionInactiveError`     | Promotion's `active` flag is `false`.                                             |
-| `Promotable::PromotionExpiredError`      | Promotion is outside its `starts_at..expires_at` range.                           |
-| `Promotable::UsageLimitExceededError`    | Code, promotion, or per-user usage limit reached.                                 |
-| `Promotable::StackingNotAllowedError`    | Stacking is disabled and a promotion is already applied.                          |
-| `Promotable::MaxPromotionsExceededError` | `max_promotions_per_promotable` limit reached.                                    |
-| `Promotable::PromotableInterfaceError`   | Model does not implement a required interface method (e.g. `#promotable_amount`). |
+| Error                                  | Raised when                                                                       |
+| -------------------------------------- | --------------------------------------------------------------------------------- |
+| `Promotable::InvalidCodeError`         | Promotion code string not found in the database.                                  |
+| `Promotable::IneligibleError`          | Promotion exists but fails eligibility checks.                                    |
+| `Promotable::PromotionInactiveError`   | Promotion's `active` flag is `false`.                                             |
+| `Promotable::PromotionExpiredError`    | Promotion is outside its `starts_at..expires_at` range.                           |
+| `Promotable::UsageLimitExceededError`  | Code, promotion, or per-user usage limit reached.                                 |
+| `Promotable::StackingNotAllowedError`  | Stacking is disabled and a promotion is already applied.                          |
+| `Promotable::PromotableInterfaceError` | Model does not implement a required interface method (e.g. `#promotable_amount`). |
 
 ### Usage in controllers
 
@@ -734,8 +675,8 @@ RSpec.describe "Order promotions" do
       expires_at: 1.day.from_now
     )
     promo.actions.create!(
-      type: "Promotable::Actions::FixedAmountDiscount",
-      preferences: { amount: 10 }
+      type: "Promotable::Actions::PercentageDiscount",
+      preferences: { percentage: 10 }
     )
     promo.codes.create!(code: "TEST10")
 

@@ -7,6 +7,5 @@ module Promotable
   class PromotionExpiredError < Error; end
   class PromotionInactiveError < Error; end
   class StackingNotAllowedError < Error; end
-  class MaxPromotionsExceededError < Error; end
   class PromotableInterfaceError < Error; end
 end

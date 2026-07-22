@@ -24,13 +24,21 @@ RSpec.describe Promotable::Applicator do
     expect(@promo.reload.usage_count).to eq(1)
   end
 
-  it "apply respects max_promotions_per_promotable" do
-    Promotable.configuration.max_promotions_per_promotable = 1
+  it "apply updates order total_after_discounts while keeping total_amount unchanged" do
+    applicator = described_class.new(@order)
 
+    applicator.apply([ @promo ])
+
+    reloaded = @order.reload
+    expect(reloaded.total_amount.to_d).to eq(BigDecimal("100.0"))
+    expect(reloaded.total_after_discounts.to_d).to eq(BigDecimal("90.0"))
+  end
+
+  it "apply only applies one promotion when stacking is disabled" do
     promo2 = create_promotion(name: "Second", priority: 1)
-    Promotable::Actions::FixedAmountDiscount.create!(
+    Promotable::Actions::PercentageDiscount.create!(
       promotion: promo2,
-      preferences: { amount: 5 }
+      preferences: { percentage: 5 }
     )
 
     applicator = described_class.new(@order)
@@ -50,6 +58,16 @@ RSpec.describe Promotable::Applicator do
     applicator.remove_all
 
     expect(Promotable::Adjustment.count).to eq(0)
+    expect(@order.reload.total_after_discounts.to_d).to eq(BigDecimal("100.0"))
+  end
+
+  it "remove restores order total_after_discounts when a promotion is removed" do
+    applicator = described_class.new(@order)
+    applicator.apply([ @promo ])
+
+    applicator.remove(@promo)
+
+    expect(@order.reload.total_after_discounts.to_d).to eq(BigDecimal("100.0"))
   end
 
   it "apply does not duplicate already applied promotions" do

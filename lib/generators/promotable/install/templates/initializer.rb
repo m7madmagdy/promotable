@@ -1,12 +1,15 @@
 Promotable.configure do |config|
-  # Maximum number of promotions that can be applied to a single promotable.
-  # config.max_promotions_per_promotable = 5
-
   # Whether multiple promotions can stack on the same promotable.
-  # config.allow_stacking = true
+  # config.allow_stacking = false
 
   # Whether promotion codes are case-sensitive.
-  # config.code_case_sensitive = false
+  # config.code_case_sensitive = true
+
+  # Optional: resolve the current tenant (Client) globally.
+  # config.current_tenant_resolver = -> { Current.client }
+
+  # Optional: tenant model name used by your host application.
+  # config.tenant_model_name = "Client"
 
   # Register custom rules:
   # config.rule_registry.register(:my_custom_rule, MyApp::MyCustomRule)

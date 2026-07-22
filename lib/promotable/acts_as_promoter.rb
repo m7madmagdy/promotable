@@ -26,7 +26,9 @@ module Promotable
       end
 
       def available_promotions
-        Promotable::Promotion.available.select do |promo|
+        client = Promotable.configuration&.current_tenant
+
+        Promotable::Promotion.available.for_client(client).select do |promo|
           promo.within_per_user_limit?(self)
         end
       end

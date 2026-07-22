@@ -102,4 +102,40 @@ RSpec.describe Promotable::Promotion do
 
     expect(promo.eligible?(order)).to be(false)
   end
+
+  it "eligible? returns true for matching client" do
+    client = create_client(name: "Acme")
+    Promotable.configuration.current_tenant_resolver = -> { client }
+
+    promo = create_promotion(client: client)
+    order = create_order(client: client)
+
+    expect(promo.eligible?(order)).to be(true)
+  end
+
+  it "eligible? returns false for different client" do
+    promo_client = create_client(name: "Acme")
+    order_client = create_client(name: "Globex")
+    Promotable.configuration.current_tenant_resolver = -> { order_client }
+
+    promo = create_promotion(client: promo_client)
+    order = create_order(client: order_client)
+
+    expect(promo.eligible?(order)).to be(false)
+  end
+
+  it "for_client includes global and matching client promotions only" do
+    acme = create_client(name: "Acme")
+    globex = create_client(name: "Globex")
+    Promotable.configuration.current_tenant_resolver = -> { acme }
+
+    global = create_promotion(name: "Global")
+    matching = create_promotion(name: "Acme", client: acme)
+    create_promotion(name: "Globex", client: globex)
+
+    result = described_class.for_client(acme)
+
+    expect(result).to include(global, matching)
+    expect(result.map(&:name)).not_to include("Globex")
+  end
 end

@@ -57,4 +57,28 @@ RSpec.describe Promotable::Evaluator do
 
     expect(evaluator.best_promotion).to be_nil
   end
+
+  it "eligible_promotions includes global and matching-client promotions" do
+    acme = create_client(name: "Acme")
+    Promotable.configuration.current_tenant_resolver = -> { acme }
+
+    global = create_promotion(name: "Global")
+    acme_promo = create_promotion(name: "Acme", client: acme)
+
+    evaluator = described_class.new(@order)
+
+    expect(evaluator.eligible_promotions).to include(global, acme_promo)
+  end
+
+  it "eligible_promotions excludes other-client promotions" do
+    acme = create_client(name: "Acme")
+    globex = create_client(name: "Globex")
+    Promotable.configuration.current_tenant_resolver = -> { acme }
+
+    create_promotion(name: "Globex", client: globex)
+
+    evaluator = described_class.new(@order)
+
+    expect(evaluator.eligible_promotions.map(&:name)).not_to include("Globex")
+  end
 end

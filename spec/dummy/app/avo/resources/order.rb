@@ -1,4 +1,4 @@
-class Avo::Resources::User < Avo::BaseResource
+class Avo::Resources::Order < Avo::BaseResource
   # self.avatar = {
   #   source: :avatar
   # }
@@ -10,9 +10,13 @@ class Avo::Resources::User < Avo::BaseResource
 
   def fields
     field :id, as: :id
-    field :name, as: :text
+    field :total_amount, as: :number
+    field :total_after_discounts, as: :number
 
+    field :shipping_cost, as: :number
+    field :item_count, as: :number
+
+    field :user, as: :belongs_to
     field :client, as: :belongs_to
-    field :orders, as: :has_many
   end
 end

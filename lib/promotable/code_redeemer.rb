@@ -1,11 +1,12 @@
 module Promotable
   class CodeRedeemer
-    attr_reader :code_string, :promotable, :user
+    attr_reader :code_string, :promotable, :user, :client
 
-    def initialize(code_string, promotable:, user: nil)
+    def initialize(code_string, promotable:, user: nil, client: nil)
       @code_string = code_string
       @promotable  = promotable
       @user        = user
+      @client      = client || resolve_configured_tenant
     end
 
     def redeem
@@ -17,7 +18,7 @@ module Promotable
       validate_user_limit!(promotion) if user
 
       ActiveRecord::Base.transaction do
-        applicator = Applicator.new(promotable, user: user)
+        applicator = Applicator.new(promotable, user: user, client: client)
         applicator.apply_single(promotion)
 
         promotion_code.increment_usage!
@@ -33,7 +34,9 @@ module Promotable
       normalized = normalize_code(code_string)
       code = PromotionCode.find_by(code: normalized)
 
-      raise InvalidCodeError, "Promotion code '#{code_string}' not found" unless code
+      if code.nil? || !code.promotion.class.for_client(client).where(id: code.promotion_id).exists?
+        raise InvalidCodeError, "Promotion code '#{code_string}' not found"
+      end
 
       code
     end
@@ -69,6 +72,10 @@ module Promotable
       return code if Promotable.configuration&.code_case_sensitive
 
       code.to_s.upcase.strip
+    end
+
+    def resolve_configured_tenant
+      Promotable.configuration&.current_tenant
     end
   end
 end

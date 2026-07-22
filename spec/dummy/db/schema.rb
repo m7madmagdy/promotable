@@ -10,13 +10,24 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
+ActiveRecord::Schema[8.1].define(version: 2026_07_22_210942) do
+  create_table "clients", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "name", null: false
+    t.datetime "updated_at", null: false
+  end
+
   create_table "orders", force: :cascade do |t|
+    t.integer "client_id"
     t.datetime "created_at", null: false
     t.integer "item_count", default: 0, null: false
     t.decimal "shipping_cost", precision: 15, scale: 4, default: "0.0", null: false
+    t.decimal "total_after_discounts", precision: 15, scale: 4, default: "0.0", null: false
     t.decimal "total_amount", precision: 15, scale: 4, default: "0.0", null: false
     t.datetime "updated_at", null: false
+    t.integer "user_id"
+    t.index ["client_id"], name: "index_orders_on_client_id"
+    t.index ["user_id"], name: "index_orders_on_user_id"
   end
 
   create_table "promotable_actions", force: :cascade do |t|
@@ -25,8 +36,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.integer "promotion_id", null: false
     t.string "type", null: false
     t.datetime "updated_at", null: false
-    t.index [ "promotion_id" ], name: "index_promotable_actions_on_promotion_id"
-    t.index [ "type" ], name: "index_promotable_actions_on_type"
+    t.index ["promotion_id"], name: "index_promotable_actions_on_promotion_id"
+    t.index ["type"], name: "index_promotable_actions_on_type"
   end
 
   create_table "promotable_adjustments", force: :cascade do |t|
@@ -40,10 +51,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.integer "promotion_action_id", null: false
     t.integer "promotion_id", null: false
     t.datetime "updated_at", null: false
-    t.index [ "adjustable_type", "adjustable_id" ], name: "index_promotable_adjustments_on_adjustable"
-    t.index [ "eligible" ], name: "index_promotable_adjustments_on_eligible"
-    t.index [ "promotion_action_id" ], name: "index_promotable_adjustments_on_promotion_action_id"
-    t.index [ "promotion_id" ], name: "index_promotable_adjustments_on_promotion_id"
+    t.index ["adjustable_type", "adjustable_id"], name: "index_promotable_adjustments_on_adjustable"
+    t.index ["eligible"], name: "index_promotable_adjustments_on_eligible"
+    t.index ["promotion_action_id"], name: "index_promotable_adjustments_on_promotion_action_id"
+    t.index ["promotion_id"], name: "index_promotable_adjustments_on_promotion_id"
   end
 
   create_table "promotable_code_usages", force: :cascade do |t|
@@ -54,9 +65,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
     t.string "user_type", null: false
-    t.index [ "promotable_type", "promotable_id" ], name: "index_promotable_code_usages_on_promotable"
-    t.index [ "promotion_code_id" ], name: "index_promotable_code_usages_on_promotion_code_id"
-    t.index [ "user_type", "user_id" ], name: "index_promotable_code_usages_on_user"
+    t.index ["promotable_type", "promotable_id"], name: "index_promotable_code_usages_on_promotable"
+    t.index ["promotion_code_id"], name: "index_promotable_code_usages_on_promotion_code_id"
+    t.index ["user_type", "user_id"], name: "index_promotable_code_usages_on_user"
   end
 
   create_table "promotable_promotion_codes", force: :cascade do |t|
@@ -66,12 +77,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0, null: false
     t.integer "usage_limit"
-    t.index [ "code" ], name: "index_promotable_promotion_codes_on_code", unique: true
-    t.index [ "promotion_id" ], name: "index_promotable_promotion_codes_on_promotion_id"
+    t.index ["code"], name: "index_promotable_promotion_codes_on_code", unique: true
+    t.index ["promotion_id"], name: "index_promotable_promotion_codes_on_promotion_id"
   end
 
   create_table "promotable_promotions", force: :cascade do |t|
     t.boolean "active", default: false, null: false
+    t.integer "client_id"
+    t.string "client_type"
     t.datetime "created_at", null: false
     t.text "description"
     t.datetime "expires_at"
@@ -85,9 +98,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.datetime "updated_at", null: false
     t.integer "usage_count", default: 0, null: false
     t.integer "usage_limit"
-    t.index [ "active" ], name: "index_promotable_promotions_on_active"
-    t.index [ "priority" ], name: "index_promotable_promotions_on_priority"
-    t.index [ "starts_at", "expires_at" ], name: "index_promotable_promotions_on_starts_at_and_expires_at"
+    t.index ["active"], name: "index_promotable_promotions_on_active"
+    t.index ["client_type", "client_id"], name: "index_promotable_promotions_on_client"
+    t.index ["priority"], name: "index_promotable_promotions_on_priority"
+    t.index ["starts_at", "expires_at"], name: "index_promotable_promotions_on_starts_at_and_expires_at"
   end
 
   create_table "promotable_rules", force: :cascade do |t|
@@ -96,21 +110,26 @@ ActiveRecord::Schema[8.1].define(version: 2026_04_09_000001) do
     t.integer "promotion_id", null: false
     t.string "type", null: false
     t.datetime "updated_at", null: false
-    t.index [ "promotion_id" ], name: "index_promotable_rules_on_promotion_id"
-    t.index [ "type" ], name: "index_promotable_rules_on_type"
+    t.index ["promotion_id"], name: "index_promotable_rules_on_promotion_id"
+    t.index ["type"], name: "index_promotable_rules_on_type"
   end
 
   create_table "users", force: :cascade do |t|
+    t.integer "client_id"
     t.datetime "created_at", null: false
     t.string "name", null: false
     t.string "promotion_group"
     t.datetime "updated_at", null: false
+    t.index ["client_id"], name: "index_users_on_client_id"
   end
 
+  add_foreign_key "orders", "clients"
+  add_foreign_key "orders", "users"
   add_foreign_key "promotable_actions", "promotable_promotions", column: "promotion_id"
   add_foreign_key "promotable_adjustments", "promotable_actions", column: "promotion_action_id"
   add_foreign_key "promotable_adjustments", "promotable_promotions", column: "promotion_id"
   add_foreign_key "promotable_code_usages", "promotable_promotion_codes", column: "promotion_code_id"
   add_foreign_key "promotable_promotion_codes", "promotable_promotions", column: "promotion_id"
   add_foreign_key "promotable_rules", "promotable_promotions", column: "promotion_id"
+  add_foreign_key "users", "clients"
 end

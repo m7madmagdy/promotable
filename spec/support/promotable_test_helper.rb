@@ -1,4 +1,8 @@
 module PromotableTestHelper
+  def create_client(attrs = {})
+    Client.create!({ name: "Test Client" }.merge(attrs))
+  end
+
   def create_promotion(attrs = {})
     Promotable::Promotion.create!({
       name: "Test Promotion",
@@ -9,6 +13,10 @@ module PromotableTestHelper
   end
 
   def create_order(attrs = {})
+    attrs = attrs.dup
+    attrs[:client] ||= create_client
+    attrs[:user] ||= create_user(client: attrs[:client])
+
     Order.create!({
       total_amount: 100,
       shipping_cost: 10,
@@ -17,6 +25,9 @@ module PromotableTestHelper
   end
 
   def create_user(attrs = {})
+    attrs = attrs.dup
+    attrs[:client] ||= create_client
+
     User.create!({ name: "Test User" }.merge(attrs))
   end
 

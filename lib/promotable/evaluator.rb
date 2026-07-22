@@ -2,9 +2,13 @@ module Promotable
   class Evaluator
     attr_reader :promotable, :context
 
-    def initialize(promotable, user: nil, code: nil)
+    def initialize(promotable, user: nil, code: nil, client: nil)
       @promotable = promotable
-      @context = { user: user, code: code }.compact
+      @context = {
+        user: user,
+        code: code,
+        client: client || resolve_configured_tenant
+      }.compact
     end
 
     def eligible_promotions
@@ -25,7 +29,7 @@ module Promotable
       if context[:code]
         Array(promotion_for_code)
       else
-        Promotion.available.to_a
+        Promotion.available.for_client(context[:client]).to_a
       end
     end
 
@@ -36,6 +40,7 @@ module Promotable
         .joins(:promotion)
         .where(code: code_value)
         .merge(Promotion.active)
+        .merge(Promotion.for_client(context[:client]))
         .first
 
       promotion_code&.promotion
@@ -45,6 +50,10 @@ module Promotable
       return code if Promotable.configuration&.code_case_sensitive
 
       code.to_s.upcase.strip
+    end
+
+    def resolve_configured_tenant
+      Promotable.configuration&.current_tenant
     end
   end
 end

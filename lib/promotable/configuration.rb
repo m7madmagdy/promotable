@@ -1,15 +1,23 @@
 module Promotable
   class Configuration
-    attr_accessor :max_promotions_per_promotable,
-                  :allow_stacking,
-                  :code_case_sensitive
+    attr_accessor :allow_stacking,
+                  :code_case_sensitive,
+                  :current_tenant_resolver,
+                  :tenant_model_name
 
     def initialize
-      @max_promotions_per_promotable = 5
-      @allow_stacking = true
-      @code_case_sensitive = false
+      @allow_stacking = false
+      @code_case_sensitive = true
+      @current_tenant_resolver = nil
+      @tenant_model_name = "Client"
       @rule_registry = nil
       @action_registry = nil
+    end
+
+    def current_tenant
+      return nil unless current_tenant_resolver.respond_to?(:call)
+
+      current_tenant_resolver.call
     end
 
     def rule_registry
@@ -22,13 +30,8 @@ module Promotable
 
     def register_defaults!
       rule_registry.register(:minimum_amount,    Promotable::Rules::MinimumAmountRule)
-      rule_registry.register(:item_quantity,      Promotable::Rules::ItemQuantityRule)
-      rule_registry.register(:first_purchase,     Promotable::Rules::FirstPurchaseRule)
-      rule_registry.register(:user_eligibility,   Promotable::Rules::UserEligibilityRule)
 
       action_registry.register(:percentage_discount,   Promotable::Actions::PercentageDiscount)
-      action_registry.register(:fixed_amount_discount,  Promotable::Actions::FixedAmountDiscount)
-      action_registry.register(:free_shipping_discount, Promotable::Actions::FreeShippingDiscount)
     end
   end
 end

@@ -35,7 +35,7 @@ RSpec.describe Promotable::Registry do
 
   it "returns all registered keys" do
     @registry.register(:a, Promotable::Rules::MinimumAmountRule)
-    @registry.register(:b, Promotable::Rules::ItemQuantityRule)
+    @registry.register(:b, Promotable::Rules::MinimumAmountRule)
 
     expect(@registry.keys.sort).to eq([ :a, :b ].sort)
   end

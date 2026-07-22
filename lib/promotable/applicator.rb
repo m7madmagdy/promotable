@@ -1,22 +1,20 @@
 module Promotable
   class Applicator
-    attr_reader :promotable, :user
+    attr_reader :promotable, :user, :client
 
-    def initialize(promotable, user: nil)
+    def initialize(promotable, user: nil, client: nil)
       @promotable = promotable
       @user = user
+      @client = client || resolve_configured_tenant
     end
 
     def apply(promotions)
       promotions = Array(promotions)
-      config = Promotable.configuration
 
       sorted = promotions.sort_by(&:priority)
       applied = existing_promotion_ids
 
       sorted.each do |promo|
-        break if config && applied.size >= config.max_promotions_per_promotable
-
         next if applied.include?(promo.id)
         next unless can_stack?(promo, applied)
 
@@ -26,19 +24,22 @@ module Promotable
     end
 
     def apply_single(promotion)
-      raise IneligibleError, "Promotion is not eligible" unless promotion.eligible?(promotable, user: user)
+      raise IneligibleError, "Promotion is not eligible" unless promotion.eligible?(promotable, user: user, client: client)
 
       apply_promotion(promotion)
     end
 
     def remove(promotion)
       promotion.actions.each { |action| action.undo(promotable) }
+      sync_discounted_total!
     end
 
     def remove_all
       Adjustment
         .where(adjustable_type: promotable.class.name, adjustable_id: promotable.id)
         .destroy_all
+
+      sync_discounted_total!
     end
 
     private
@@ -48,6 +49,8 @@ module Promotable
         promotion.actions.each do |action|
           action.apply(promotable, user: user)
         end
+
+        sync_discounted_total!
         promotion.increment_usage!
       end
     end
@@ -61,12 +64,46 @@ module Promotable
       applied_ids.empty?
     end
 
+    def current_discount_total
+      BigDecimal(
+        Adjustment
+          .where(adjustable_type: promotable.class.name, adjustable_id: promotable.id)
+          .where(eligible: true)
+          .sum(:amount)
+          .to_s
+      )
+    end
+
+    def sync_discounted_total!
+      target_column = discounted_total_column
+      return if target_column.nil?
+
+      base_total = BigDecimal(promotable.total_amount.to_s)
+      discounted_total = (base_total + current_discount_total).round(4)
+      current_value = BigDecimal(promotable.public_send(target_column).to_s)
+      return if current_value == discounted_total
+
+      promotable.update!(target_column => discounted_total)
+    end
+
+    def discounted_total_column
+      if promotable.respond_to?(:total_after_discounts) && promotable.respond_to?(:total_after_discounts=)
+        :total_after_discounts
+      elsif promotable.respond_to?(:total_amount) && promotable.respond_to?(:total_amount=)
+        :total_amount
+      end
+    end
+
     def existing_promotion_ids
       Adjustment
         .where(adjustable_type: promotable.class.name, adjustable_id: promotable.id)
         .where(eligible: true)
         .pluck(:promotion_id)
         .uniq
+    end
+
+    def resolve_configured_tenant
+      Promotable.configuration&.current_tenant
     end
   end
 end

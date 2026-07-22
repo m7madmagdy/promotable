@@ -5,10 +5,13 @@ abort("The Rails environment is running in production mode!") if Rails.env.produ
 
 ActiveRecord::Migrator.migrations_paths = [ File.expand_path("../spec/dummy/db/migrate", __dir__) ]
 ActiveRecord::Migrator.migrations_paths << File.expand_path("../db/migrate", __dir__)
+ActiveRecord::Tasks::DatabaseTasks.migrations_paths = ActiveRecord::Migrator.migrations_paths
 
 require "rspec/rails"
 
 begin
+  ActiveRecord::Tasks::DatabaseTasks.migrate
+
   ActiveRecord::Migration.maintain_test_schema!
 rescue ActiveRecord::PendingMigrationError => e
   abort e.to_s.strip

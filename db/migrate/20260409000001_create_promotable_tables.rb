@@ -1,5 +1,7 @@
 class CreatePromotableTables < ActiveRecord::Migration[8.1]
   def change
+    return if table_exists?(:promotable_promotions)
+
     create_table :promotable_promotions do |t|
       t.string   :name,           null: false
       t.text     :description

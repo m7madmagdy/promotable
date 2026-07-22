@@ -16,19 +16,19 @@ RSpec.describe Promotable::PromotionCode do
     expect(duplicate).not_to be_valid
   end
 
-  it "normalizes code to uppercase by default" do
+  it "preserves case by default" do
     promo = create_promotion
     code = described_class.create!(promotion: promo, code: "save10")
 
-    expect(code.code).to eq("SAVE10")
+    expect(code.code).to eq("save10")
   end
 
-  it "preserves case when code_case_sensitive is true" do
-    Promotable.configuration.code_case_sensitive = true
+  it "normalizes code to uppercase when code_case_sensitive is false" do
+    Promotable.configuration.code_case_sensitive = false
     promo = create_promotion
     code = described_class.create!(promotion: promo, code: "Save10")
 
-    expect(code.code).to eq("Save10")
+    expect(code.code).to eq("SAVE10")
   end
 
   it "within_usage_limit? returns true when no limit" do

@@ -43,10 +43,7 @@ Rules::Base
   - pre_check(promotable, context) : bool      # private – fast-fail hook (default: true)
   - evaluate(promotable, context)  : bool      # private – abstract, must override
     │
-    ├── MinimumAmountRule      overrides: evaluate
-    ├── ItemQuantityRule       overrides: pre_check, evaluate
-    ├── FirstPurchaseRule      overrides: pre_check, evaluate
-    └── UserEligibilityRule    overrides: pre_check, evaluate
+    └── MinimumAmountRule      overrides: evaluate
 ```
 
 ```
@@ -57,9 +54,7 @@ Actions::Base
   - create_adjustment(promotable, amount, label)       # private – persists Adjustment record
   - remove_adjustments(promotable)                     # private – deletes existing adjustments
     │
-    ├── PercentageDiscount      overrides: compute_amount, apply
-    ├── FixedAmountDiscount     overrides: compute_amount, apply
-    └── FreeShippingDiscount    overrides: compute_amount, apply
+    └── PercentageDiscount      overrides: compute_amount, apply
 ```
 
 **Why STI?** Each rule/action row lives in one table (`promotable_rules` or `promotable_actions`) with a `type` column that Rails resolves to the correct class. This means a `Promotion` can `has_many :rules` and iterate over them uniformly -- each one responds to `#eligible?` but with completely different logic inside.
@@ -80,10 +75,10 @@ eligible?(promotable, context)
   +-- evaluate(promotable, context)    # actual logic (abstract, subclasses MUST override)
 ```
 
-- `pre_check` -- optional hook for fast-fail guards (e.g. "is there a user in context?"). Defaults to `true`.
+- `pre_check` -- optional hook for fast-fail guards. Defaults to `true`.
 - `evaluate` -- the real eligibility logic. Raises `NotImplementedError` if not overridden.
 
-This lets rules like `FirstPurchaseRule` reject immediately if no user is present (via `pre_check`) without touching the database at all.
+This keeps rule implementations small and focused while preserving a consistent execution flow.
 
 ### 3. Registry Pattern
 
@@ -226,7 +221,6 @@ Host App        Evaluator       Promotion       Rules           Applicator      
     │─ apply(eligible_promotions) ───────────────────────────────▶  │               │
     │               │               │               │               │               │
     │               │               │               │   ┌── for each promotion (sorted by priority) ──┐
-    │               │               │               │   │  check max_promotions limit                 │
     │               │               │               │   │  check stacking rules                       │
     │               │               │               │   │  ╔══ Transaction ════════════════════╗      │
     │               │               │               │   │  ║ action.apply(promotable) ─────── ║ ───▶ │
@@ -240,7 +234,7 @@ Host App        Evaluator       Promotion       Rules           Applicator      
 | Service        | Role                                                                                                                                               | Key methods                                     |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------- |
 | `Evaluator`    | Determines which promotions are eligible for a given promotable. Resolves candidates either from all available promotions or from a specific code. | `eligible_promotions`, `best_promotion`         |
-| `Applicator`   | Applies or removes promotion actions. Enforces stacking rules and max-promotion limits. Wraps action execution in a transaction.                   | `apply`, `apply_single`, `remove`, `remove_all` |
+| `Applicator`   | Applies or removes promotion actions. Enforces stacking rules and wraps action execution in a transaction.                                          | `apply`, `apply_single`, `remove`, `remove_all` |
 | `CodeRedeemer` | End-to-end coupon redemption. Validates the code, promotion status, usage limits, and per-user limits, then delegates to Applicator.               | `redeem`                                        |
 
 ## Host App Integration
@@ -268,8 +262,8 @@ This adds:
 | Method                      | Returns      | Used by                           |
 | --------------------------- | ------------ | --------------------------------- |
 | `#promotable_amount`        | `BigDecimal` | All rules and actions             |
-| `#promotable_items`         | Array-like   | `ItemQuantityRule` (optional)     |
-| `#promotable_shipping_cost` | `BigDecimal` | `FreeShippingDiscount` (optional) |
+| `#promotable_items`         | Array-like   | Custom rules/actions (optional)   |
+| `#promotable_shipping_cost` | `BigDecimal` | Custom rules/actions (optional)   |
 
 ### ActsAsPromoter
 
@@ -339,14 +333,9 @@ promotable/
 │   ├── rules/
 │   │   ├── base.rb                  # STI base -- #eligible? / #evaluate
 │   │   ├── minimum_amount_rule.rb   # promotable_amount >= threshold
-│   │   ├── item_quantity_rule.rb    # promotable_items.size >= threshold
-│   │   ├── first_purchase_rule.rb   # user has zero prior usages
-│   │   └── user_eligibility_rule.rb # user.promotion_group matches
 │   └── actions/
 │       ├── base.rb                  # STI base -- #apply / #undo / #compute_amount
-│       ├── percentage_discount.rb   # X% off promotable_amount
-│       ├── fixed_amount_discount.rb # flat $X off (capped)
-│       └── free_shipping_discount.rb# negates promotable_shipping_cost
+│       └── percentage_discount.rb   # X% off promotable_amount
 │
 ├── db/migrate/
 │   └── 20260409000001_create_promotable_tables.rb  # All 6 tables
@@ -386,6 +375,5 @@ Promotable::Error
 ├── PromotionExpiredError       # outside date range
 ├── UsageLimitExceededError     # code, promotion, or per-user limit
 ├── StackingNotAllowedError     # stacking disabled, already has a promo
-├── MaxPromotionsExceededError  # max_promotions_per_promotable reached
 └── PromotableInterfaceError    # model missing required method
 ```

@@ -1,5 +1,7 @@
 module Promotable
   class Promotion < ApplicationRecord
+    belongs_to :client, polymorphic: true, optional: true
+
     has_many :rules,       class_name: "Promotable::Rules::Base",
                            foreign_key: :promotion_id,
                            dependent: :destroy,
@@ -32,11 +34,25 @@ module Promotable
     scope :by_priority, -> { order(priority: :asc) }
     scope :stackable,   -> { where(stackable: true) }
     scope :available,   -> { active.current.by_priority }
+    scope :for_client, lambda { |client|
+      if client.nil?
+        where(client_id: nil, client_type: nil)
+      else
+        table = arel_table
+        global = table[:client_id].eq(nil).and(table[:client_type].eq(nil))
+        scoped = table[:client_id].eq(client.id).and(table[:client_type].eq(client.class.base_class.name))
+
+        where(global.or(scoped))
+      end
+    }
 
     def eligible?(promotable, context = {})
+      client = context[:client] || resolve_configured_tenant
+
       active? &&
         within_date_range? &&
         within_usage_limit? &&
+        within_client_scope?(client) &&
         within_per_user_limit?(context[:user]) &&
         rules_satisfied?(promotable, context)
     end
@@ -74,6 +90,17 @@ module Promotable
     end
 
     private
+
+    def within_client_scope?(candidate_client)
+      return true if client_id.blank? || client_type.blank?
+      return false if candidate_client.nil?
+
+      client_type == candidate_client.class.base_class.name && client_id == candidate_client.id
+    end
+
+    def resolve_configured_tenant
+      Promotable.configuration&.current_tenant
+    end
 
     def rules_satisfied?(promotable, context)
       rules.all? { |rule| rule.eligible?(promotable, context) }

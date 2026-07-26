@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Entrypoint for the promotable dummy Rails app container.
+#
+# * Cleans up any stale server PID left from a previous run.
+# * Prepares both the engine's and the dummy app's migration paths so the
+#   sqlite database is up to date before booting `rails server` (or any other
+#   CMD). Migrations live in BOTH db/migrate (engine) and spec/dummy/db/migrate
+#   (host app); Rails loads both when booted through spec/dummy.
+# * Skips DB prep when the command is `bundle exec rspec` (spec suite handles
+#   its own setup) or when SKIP_DB_PREPARE=1 is passed.
+set -euo pipefail
+
+APP_ROOT="/rails"
+cd "$APP_ROOT"
+
+# Remove any leftover server pid so `rails s` can start cleanly.
+rm -f spec/dummy/tmp/pids/server.pid tmp/pids/server.pid 2>/dev/null || true
+
+# Only prepare the DB when actually starting a Rails process. This avoids
+# hammering the DB when the container is used ad-hoc (bash, rspec, etc.).
+should_prepare_db=0
+case "${1:-}" in
+    bin/rails|./bin/rails|rails)
+        [[ "${2:-}" == "server" || "${2:-}" == "s" ]] && should_prepare_db=1
+        ;;
+    bundle)
+        [[ "${2:-}" == "exec" && ( "${3:-}" == "rails" || "${3:-}" == "puma" ) ]] && should_prepare_db=1
+        ;;
+    puma)
+        should_prepare_db=1
+        ;;
+esac
+
+if [[ "${SKIP_DB_PREPARE:-0}" == "1" ]]; then
+    should_prepare_db=0
+fi
+
+if [[ "$should_prepare_db" == "1" ]]; then
+    echo "==> Preparing dummy app database (RAILS_ENV=${RAILS_ENV:-development})"
+    bundle exec rails db:create db:migrate db:seed
+fi
+
+exec "$@"

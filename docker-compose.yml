@@ -1,0 +1,47 @@
+# docker-compose.yml
+#
+# One-command boot for the Promotable engine's dummy Rails app.
+#
+#   docker compose up            # build + run on http://localhost:3000
+#   docker compose run --rm app bundle exec rspec   # run the spec suite
+#   docker compose run --rm app bash                # drop into a shell
+#
+# The source directory is bind-mounted for live reloading in development. The
+# bundle cache and the dummy app's sqlite storage live in named volumes so
+# they survive `docker compose down` and don't get shadowed by the bind mount.
+
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+            args:
+                RUBY_VERSION: "3.4"
+        image: app:dev
+        ports:
+            - "${DUMMY_PORT:-4000}:4000"
+        environment:
+            RAILS_ENV: ${RAILS_ENV:-development}
+            RAILS_LOG_TO_STDOUT: "1"
+            RAILS_MAX_THREADS: "5"
+            # Rails 8 blocks unknown Host headers by default in development
+            # unless explicitly allowed. localhost is fine for local Docker.
+            RAILS_DEVELOPMENT_HOSTS: "localhost,0.0.0.0,dummy"
+            BUNDLE_PATH: /usr/local/bundle
+        volumes:
+            # Bind-mount source for live reloading. .dockerignore does not
+            # apply to bind mounts, so intentionally exclude ephemeral
+            # directories via named volumes below.
+            - .:/rails
+            - bundle_cache:/usr/local/bundle
+            - dummy_storage:/rails/spec/dummy/storage
+            - dummy_tmp:/rails/spec/dummy/tmp
+            - dummy_log:/rails/spec/dummy/log
+        tty: true
+        stdin_open: true
+
+volumes:
+    bundle_cache:
+    dummy_storage:
+    dummy_tmp:
+    dummy_log:

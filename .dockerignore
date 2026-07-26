@@ -1,0 +1,42 @@
+# Version control
+.git
+.github
+.gitignore
+
+# Local editor / IDE state
+.vscode
+.ruby-lsp
+.idea
+
+# Local build & runtime artifacts
+tmp
+log
+pkg
+doc
+
+# Local sqlite databases (they should be created inside the container / volume)
+db/*.sqlite3
+db/*.sqlite3-*
+storage/*.sqlite3
+storage/*.sqlite3-*
+spec/dummy/db/*.sqlite3
+spec/dummy/db/*.sqlite3-*
+spec/dummy/storage/*.sqlite3
+spec/dummy/storage/*.sqlite3-*
+spec/dummy/tmp
+spec/dummy/log
+
+# Bundler-local install path (image installs to /usr/local/bundle)
+.bundle
+vendor/bundle
+
+# Docker meta files
+Dockerfile
+.dockerignore
+docker-compose.yml
+docker-compose.*.yml
+
+# Misc
+*.log
+*.pid
+.DS_Store

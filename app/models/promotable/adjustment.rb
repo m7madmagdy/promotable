@@ -1,5 +1,7 @@
 module Promotable
   class Adjustment < ApplicationRecord
+    include Promotable::TenantScoped
+
     belongs_to :promotion,        class_name: "Promotable::Promotion",
                                   inverse_of: :adjustments
 
@@ -8,6 +10,9 @@ module Promotable
 
     validates :amount, presence: true, numericality: true
     validates :label,  presence: true
+
+    before_validation :inherit_client_from_promotion
+    validate :client_matches_promotion
 
     scope :eligible,   -> { where(eligible: true) }
     scope :ineligible, -> { where(eligible: false) }
@@ -24,6 +29,21 @@ module Promotable
 
     def debit?
       amount.positive?
+    end
+
+    private
+
+    def inherit_client_from_promotion
+      return if promotion.nil?
+
+      self.client_id = promotion.client_id
+    end
+
+    def client_matches_promotion
+      return if promotion.nil?
+      return if client_id == promotion.client_id
+
+      errors.add(:client_id, "must match the promotion's client")
     end
   end
 end

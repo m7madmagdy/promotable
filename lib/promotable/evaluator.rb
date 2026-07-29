@@ -4,16 +4,15 @@ module Promotable
 
     def initialize(promotable, user: nil, code: nil, client: nil)
       @promotable = promotable
-      @context = {
-        user: user,
-        code: code,
-        client: client || resolve_configured_tenant
-      }.compact
+      @client = client || resolve_configured_tenant
+      @context = { user: user, code: code, client: @client }.compact
     end
 
     def eligible_promotions
-      candidates = resolve_candidates
-      candidates.select { |promo| promo.eligible?(promotable, context) }
+      with_tenant_scope do
+        candidates = resolve_candidates
+        candidates.select { |promo| promo.eligible?(promotable, context) }
+      end
     end
 
     def best_promotion
@@ -29,21 +28,17 @@ module Promotable
       if context[:code]
         Array(promotion_for_code)
       else
-        Promotion.available.for_client(context[:client]).to_a
+        Promotion.available.to_a
       end
     end
 
     def promotion_for_code
-      code_value = normalize_code(context[:code])
-
-      promotion_code = PromotionCode
+      PromotionCode
         .joins(:promotion)
-        .where(code: code_value)
+        .where(code: normalize_code(context[:code]))
         .merge(Promotion.active)
-        .merge(Promotion.for_client(context[:client]))
         .first
-
-      promotion_code&.promotion
+        &.promotion
     end
 
     def normalize_code(code)
@@ -54,6 +49,10 @@ module Promotable
 
     def resolve_configured_tenant
       Promotable.configuration&.current_tenant
+    end
+
+    def with_tenant_scope(&block)
+      ActsAsTenant.with_tenant(@client, &block)
     end
   end
 end

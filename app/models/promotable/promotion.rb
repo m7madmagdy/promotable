@@ -1,6 +1,6 @@
 module Promotable
   class Promotion < ApplicationRecord
-    belongs_to :client, polymorphic: true, optional: true
+    include Promotable::TenantScoped
 
     has_many :rules,       class_name: "Promotable::Rules::Base",
                            foreign_key: :promotion_id,
@@ -34,25 +34,33 @@ module Promotable
     scope :by_priority, -> { order(priority: :asc) }
     scope :stackable,   -> { where(stackable: true) }
     scope :available,   -> { active.current.by_priority }
-    scope :for_client, lambda { |client|
-      if client.nil?
-        where(client_id: nil, client_type: nil)
-      else
-        table = arel_table
-        global = table[:client_id].eq(nil).and(table[:client_type].eq(nil))
-        scoped = table[:client_id].eq(client.id).and(table[:client_type].eq(client.class.base_class.name))
 
-        where(global.or(scoped))
+    # Cross-tenant lookup helper. Prefer `ActsAsTenant.with_tenant(client) { ... }`
+    # in application code; this scope exists mainly for admin tooling and
+    # tests that need to inspect visibility from a given tenant's perspective
+    # without switching Current.tenant.
+    scope :for_client, lambda { |client|
+      base = unscoped
+      if client.nil?
+        base.where(client_id: nil)
+      else
+        base.where(client_id: [ nil, client.id ])
       end
     }
 
+    # Keep tenant-scoped children (codes, usages, adjustments) in sync when a
+    # promotion is (re)assigned to a client. Required because acts_as_tenant
+    # allows a nil → value transition on the parent, but children were
+    # snapshotted at creation time.
+    after_save :propagate_client_id_to_children, if: :saved_change_to_client_id?
+
     def eligible?(promotable, context = {})
-      client = context[:client] || resolve_configured_tenant
+      candidate_client = context[:client] || Promotable.configuration&.current_tenant || promotable.try(:client)
 
       active? &&
         within_date_range? &&
         within_usage_limit? &&
-        within_client_scope?(client) &&
+        within_client_scope?(candidate_client) &&
         within_per_user_limit?(context[:user]) &&
         rules_satisfied?(promotable, context)
     end
@@ -91,15 +99,24 @@ module Promotable
 
     private
 
+    # Global promotions (client_id: nil) are visible to every tenant, so
+    # they always pass the scope check. A tenant-scoped promotion only
+    # matches the exact client passed in.
     def within_client_scope?(candidate_client)
-      return true if client_id.blank? || client_type.blank?
+      return true if client_id.nil?
       return false if candidate_client.nil?
 
-      client_type == candidate_client.class.base_class.name && client_id == candidate_client.id
+      client_id == candidate_client.id
     end
 
-    def resolve_configured_tenant
-      Promotable.configuration&.current_tenant
+    def propagate_client_id_to_children
+      new_client_id = client_id
+      ActsAsTenant.without_tenant do
+        code_ids = Promotable::PromotionCode.where(promotion_id: id).pluck(:id)
+        Promotable::PromotionCode.where(id: code_ids).update_all(client_id: new_client_id)
+        Promotable::CodeUsage.where(promotion_code_id: code_ids).update_all(client_id: new_client_id)
+        Promotable::Adjustment.where(promotion_id: id).update_all(client_id: new_client_id)
+      end
     end
 
     def rules_satisfied?(promotable, context)

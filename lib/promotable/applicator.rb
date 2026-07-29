@@ -9,37 +9,43 @@ module Promotable
     end
 
     def apply(promotions)
-      promotions = Array(promotions)
+      with_tenant_scope do
+        promotions = Array(promotions)
 
-      sorted = promotions.sort_by(&:priority)
-      applied = existing_promotion_ids
+        sorted = promotions.sort_by(&:priority)
+        applied = existing_promotion_ids
 
-      sorted.each do |promo|
-        next if applied.include?(promo.id)
-        next unless can_stack?(promo, applied)
+        sorted.each do |promo|
+          next if applied.include?(promo.id)
+          next unless can_stack?(promo, applied)
 
-        apply_promotion(promo)
-        applied << promo.id
+          apply_promotion(promo)
+          applied << promo.id
+        end
       end
     end
 
     def apply_single(promotion)
       raise IneligibleError, "Promotion is not eligible" unless promotion.eligible?(promotable, user: user, client: client)
 
-      apply_promotion(promotion)
+      with_tenant_scope { apply_promotion(promotion) }
     end
 
     def remove(promotion)
-      promotion.actions.each { |action| action.undo(promotable) }
-      sync_discounted_total!
+      with_tenant_scope do
+        promotion.actions.each { |action| action.undo(promotable) }
+        sync_discounted_total!
+      end
     end
 
     def remove_all
-      Adjustment
-        .where(adjustable_type: promotable.class.name, adjustable_id: promotable.id)
-        .destroy_all
+      with_tenant_scope do
+        Adjustment
+          .where(adjustable_type: promotable.class.name, adjustable_id: promotable.id)
+          .destroy_all
 
-      sync_discounted_total!
+        sync_discounted_total!
+      end
     end
 
     private
@@ -104,6 +110,10 @@ module Promotable
 
     def resolve_configured_tenant
       Promotable.configuration&.current_tenant
+    end
+
+    def with_tenant_scope(&block)
+      ActsAsTenant.with_tenant(@client, &block)
     end
   end
 end

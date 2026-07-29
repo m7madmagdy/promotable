@@ -1,5 +1,9 @@
 <% module_namespacing do -%>
 class <%= class_name %>Rule < Promotable::Rules::Base
+<% if required_context_keys.any? -%>
+  requires_context <%= required_context_keys.map { |k| ":#{k}" }.join(", ") %>
+
+<% end -%>
 <% if parsed_preferences.any? -%>
   store_accessor :preferences, <%= parsed_preferences.map { |p| ":#{p[:name]}" }.join(", ") %>
 

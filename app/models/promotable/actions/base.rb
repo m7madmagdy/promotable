@@ -32,6 +32,13 @@ module Promotable
         name.demodulize.underscore.humanize
       end
 
+      # Overridable hook — subclasses can build a human-friendly label from
+      # their preferences (e.g. "15% off", "$5 off", "Free shipping"). The
+      # default falls back to the class display name.
+      def adjustment_label(_promotable = nil, _context = {})
+        self.class.display_name
+      end
+
       private
 
       def create_adjustment(promotable, amount, label: nil)
@@ -39,7 +46,7 @@ module Promotable
           promotion: promotion,
           adjustable: promotable,
           amount: amount,
-          label: label || self.class.display_name,
+          label: label || adjustment_label(promotable),
           eligible: true
         )
       end

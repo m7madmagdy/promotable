@@ -2,11 +2,20 @@ require "concurrent/map"
 
 module Promotable
   class Registry
-    attr_reader :base_class
-
     def initialize(base_class)
-      @base_class = base_class
+      # Store the class NAME rather than the Class object so registrations
+      # survive Rails code reloading in development. Zeitwerk replaces the
+      # actual Class objects on every reload; a captured reference would go
+      # stale and cause `subclass < old_base_class` to return false, raising
+      # spurious "must be a subclass of ..." errors on the next request.
+      @base_class_name = base_class.is_a?(String) || base_class.is_a?(Symbol) ? base_class.to_s : base_class.name
       @items = Concurrent::Map.new
+    end
+
+    # Always resolves to the *current* base class through the constant
+    # lookup, so callers see the reloaded class in development.
+    def base_class
+      @base_class_name.constantize
     end
 
     def register(key, klass)
@@ -44,10 +53,14 @@ module Promotable
     private
 
     def validate!(klass)
-      return if klass < base_class
+      # Compare by name to remain correct across Rails reloads. `klass <
+      # base_class` would fail after a reload because Zeitwerk rebuilds
+      # every Class object, so the ancestor chain no longer includes the
+      # *old* base-class reference we would otherwise be comparing against.
+      return if klass.ancestors.any? { |a| a.name == @base_class_name }
 
       raise ArgumentError,
-        "#{klass} must be a subclass of #{base_class.name}"
+        "#{klass} must be a subclass of #{@base_class_name}"
     end
   end
 end

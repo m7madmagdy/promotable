@@ -2,6 +2,32 @@ module Promotable
   module ActsAsPromotable
     extend ActiveSupport::Concern
 
+    # Methods the host promotable model MUST implement. Missing methods here
+    # raise Promotable::PromotableInterfaceError from the base implementation.
+    REQUIRED_CONTRACT_METHODS = [ :promotable_amount ].freeze
+
+    # Methods host apps MAY implement to unlock additional built-in rules and
+    # actions. When missing, Promotable::ContractResolver returns nil and
+    # rules that depend on them evaluate to ineligible. See
+    # `Promotable.configuration.on_missing_contract_method` for warn/raise/skip.
+    OPTIONAL_CONTRACT_METHODS = [
+      :promotable_items,
+      :promotable_item_count,
+      :promotable_shipping_cost,
+      :promotable_country,
+      :promotable_store_id,
+      :promotable_source,
+      :promotable_payment_method
+    ].freeze
+
+    def self.required_contract_methods
+      REQUIRED_CONTRACT_METHODS
+    end
+
+    def self.optional_contract_methods
+      OPTIONAL_CONTRACT_METHODS
+    end
+
     class_methods do
       def acts_as_promotable
         has_many :promotable_adjustments,

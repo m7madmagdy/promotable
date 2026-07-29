@@ -23,6 +23,7 @@ RSpec.configure do |config|
   config.use_transactional_fixtures = true
 
   config.include PromotableTestHelper
+  config.include ActiveSupport::Testing::TimeHelpers
 
   config.before do
     Promotable.configuration = Promotable::Configuration.new

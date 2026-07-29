@@ -8,4 +8,6 @@ module Promotable
   class PromotionInactiveError < Error; end
   class StackingNotAllowedError < Error; end
   class PromotableInterfaceError < Error; end
+  class MissingContextError < Error; end
+  class ContractError < Error; end
 end

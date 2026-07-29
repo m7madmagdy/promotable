@@ -10,33 +10,34 @@ module Promotable
     end
 
     def redeem
-      promotion_code = find_code!
-      promotion = promotion_code.promotion
+      ActsAsTenant.with_tenant(client) do
+        promotion_code = find_code!
+        promotion = promotion_code.promotion
 
-      validate_promotion!(promotion)
-      validate_code!(promotion_code)
-      validate_user_limit!(promotion) if user
+        validate_promotion!(promotion)
+        validate_code!(promotion_code)
+        validate_user_limit!(promotion) if user
 
-      ActiveRecord::Base.transaction do
-        applicator = Applicator.new(promotable, user: user, client: client)
-        applicator.apply_single(promotion)
+        ActiveRecord::Base.transaction do
+          applicator = Applicator.new(promotable, user: user, client: client)
+          applicator.apply_single(promotion)
 
-        promotion_code.increment_usage!
-        record_usage(promotion_code)
+          promotion_code.increment_usage!
+          record_usage(promotion_code)
+        end
+
+        promotion
       end
-
-      promotion
     end
 
     private
 
+    # Runs inside the caller's with_tenant block, so acts_as_tenant's
+    # default_scope filters PromotionCode to the current tenant automatically.
+    # A code belonging to a different tenant simply won't be found.
     def find_code!
-      normalized = normalize_code(code_string)
-      code = PromotionCode.find_by(code: normalized)
-
-      if code.nil? || !code.promotion.class.for_client(client).where(id: code.promotion_id).exists?
-        raise InvalidCodeError, "Promotion code '#{code_string}' not found"
-      end
+      code = PromotionCode.find_by(code: normalize_code(code_string))
+      raise InvalidCodeError, "Promotion code '#{code_string}' not found" if code.nil?
 
       code
     end

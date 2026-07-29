@@ -8,6 +8,9 @@ module Promotable
       argument :preferences, type: :array, default: [],
                banner: "field:type field:type"
 
+      class_option :requires_context, type: :array, default: [],
+        desc: "Context keys the rule requires at evaluation time (e.g. user client)."
+
       def create_rule_file
         template "rule.rb.tt", File.join("app/models", class_path.join("/"), "#{file_name}_rule.rb")
       end
@@ -31,6 +34,10 @@ module Promotable
           name, type = pref.split(":")
           { name: name, type: type || "string" }
         end
+      end
+
+      def required_context_keys
+        Array(options[:requires_context]).map(&:to_sym)
       end
     end
   end

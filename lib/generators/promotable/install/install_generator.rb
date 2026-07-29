@@ -5,7 +5,14 @@ module Promotable
 
       desc "Installs the Promotable engine: copies migrations and creates the initializer."
 
+      class_option :tenant_model, type: :string, default: "Client",
+        desc: "Host model that owns promotions (e.g. Client, Account, Organization)."
+      class_option :require_tenant, type: :boolean, default: false,
+        desc: "When true, every Promotable query requires an ActsAsTenant.current_tenant."
+
       def copy_initializer
+        @tenant_model   = options[:tenant_model]
+        @require_tenant = options[:require_tenant]
         template "initializer.rb", "config/initializers/promotable.rb"
       end
 

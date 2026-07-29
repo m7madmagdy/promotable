@@ -31,6 +31,15 @@ module PromotableTestHelper
     User.create!({ name: "Test User" }.merge(attrs))
   end
 
+  def create_line_item(order, attrs = {})
+    order.line_items.create!({
+      variant_sku: attrs.fetch(:variant_sku, "SKU-#{SecureRandom.hex(3)}"),
+      quantity:    attrs.fetch(:quantity, 1),
+      price:       attrs.fetch(:price, 10),
+      price_after_discount: attrs.fetch(:price_after_discount, attrs.fetch(:price, 10))
+    })
+  end
+
   def create_promotion_with_code(code: "SAVE10", **promo_attrs)
     promo = create_promotion(**promo_attrs)
     promo.codes.create!(code: code)

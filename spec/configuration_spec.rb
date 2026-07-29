@@ -40,13 +40,20 @@ RSpec.describe Promotable::Configuration do
     config = described_class.new
     config.register_defaults!
 
-    expect(config.rule_registry.registered?(:minimum_amount)).to be(true)
-    expect(config.rule_registry.registered?(:item_quantity)).to be(false)
-    expect(config.rule_registry.registered?(:first_purchase)).to be(false)
-    expect(config.rule_registry.registered?(:user_eligibility)).to be(false)
+    %i[
+      minimum_amount maximum_amount country store source
+      first_purchase new_user user_activity allowed_users frequency
+      product_variant category minimum_quantity time_window
+      payment_method birthday
+    ].each do |key|
+      expect(config.rule_registry.registered?(key)).to be(true), "expected rule #{key.inspect} to be registered"
+    end
 
-    expect(config.action_registry.registered?(:percentage_discount)).to be(true)
-    expect(config.action_registry.registered?(:fixed_amount_discount)).to be(false)
-    expect(config.action_registry.registered?(:free_shipping_discount)).to be(false)
+    %i[
+      percentage_discount fixed_amount_discount capped_percentage_discount
+      free_shipping tiered_discount
+    ].each do |key|
+      expect(config.action_registry.registered?(key)).to be(true), "expected action #{key.inspect} to be registered"
+    end
   end
 end
